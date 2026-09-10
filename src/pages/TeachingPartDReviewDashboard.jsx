@@ -163,6 +163,7 @@ export default function TeachingPartDReviewDashboard({ accent = "#155e75", acade
   const [activeSchoolId, setActiveSchoolId] = useState("");
   const [score, setScore] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [leaveManagement, setLeaveManagement] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const academicYear = academicYearProp || getActiveAcademicYear() || APP_INFO.DEFAULT_AY;
@@ -224,10 +225,18 @@ export default function TeachingPartDReviewDashboard({ accent = "#155e75", acade
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (selected && isPartDReviewed(selected)) {
-        setScore(partDScoreForInput(selected));
-        setRemarks(selected.registrarPartDRemarks || selected.registrar_part_d_remarks || "");
+      if (selected) {
+        const initialLeave = selected.leaveManagement || selected.leave_management || [];
+        setLeaveManagement(JSON.parse(JSON.stringify(initialLeave)));
+        if (isPartDReviewed(selected)) {
+          setScore(partDScoreForInput(selected));
+          setRemarks(selected.registrarPartDRemarks || selected.registrar_part_d_remarks || "");
+        } else {
+          setScore("");
+          setRemarks("");
+        }
       } else {
+        setLeaveManagement([]);
         setScore("");
         setRemarks("");
       }
@@ -261,10 +270,14 @@ export default function TeachingPartDReviewDashboard({ accent = "#155e75", acade
         academicYear,
         score,
         remarks,
+        leaveManagement,
+        leave_management: leaveManagement,
         subjectProfile: selected,
       });
       const reviewedItem = {
         ...selected,
+        leaveManagement,
+        leave_management: leaveManagement,
         partDStatus: "released",
         hasRegistrarPartDScore: true,
         registrarPartDScore: Number(score),
@@ -400,11 +413,12 @@ export default function TeachingPartDReviewDashboard({ accent = "#155e75", acade
           </div>
 
           <RegistrarLeaveManagement
-            ctx={{ leaveManagement: selected.leaveManagement || selected.leave_management }}
+            ctx={{ leaveManagement }}
             score={score}
             remarks={remarks}
             onScoreChange={setScore}
             onRemarksChange={setRemarks}
+            onLeaveManagementChange={setLeaveManagement}
             disabled={saving || selectedReviewed}
           />
 

@@ -883,9 +883,18 @@ const normalizeQueueItem = (item = {}) => {
     // Part D routes to the Registrar independently of the A/B/C/E chain above - see
     // partDReleaseGateApplies in utils/hierarchy.js and backend_changes_requied.md.
     partDStatus: firstValue(item.part_d_status, item.partDStatus),
-    registrarPartDScore: numberValue(firstValue(item.registrar_part_d_score, item.registrarPartDScore)),
-    registrarPartDRemarks: firstValue(item.registrar_part_d_remarks, item.registrarPartDRemarks),
+    registrarPartDScore: numberValue(firstValue(item.registrar_part_d_score, item.registrarPartDScore, item.registrar_part_d, item.registrarPartD, reviewSummary.registrarPartDScore, reviewSummary.registrarPartD)),
+    registrarPartDRemarks: firstValue(item.registrar_part_d_remarks, item.registrarPartDRemarks, item.registrar_remarks, item.registrarRemarks, reviewSummary.registrarPartDRemarks, reviewSummary.registrarRemarks),
     registrarPartDReviewedAt: firstValue(item.registrar_part_d_reviewed_at, item.registrarPartDReviewedAt),
+    hasRegistrarPartDScore: Boolean(
+      item.has_registrar_part_d_score ||
+      item.hasRegistrarPartDScore ||
+      item.registrar_part_d_reviewed_at ||
+      item.registrarPartDReviewedAt ||
+      firstValue(item.registrar_part_d_score, item.registrarPartDScore, item.registrar_part_d, item.registrarPartD, reviewSummary.registrarPartDScore, reviewSummary.registrarPartD) !== ""
+    ),
+    registrarPartDLeaveManagement: item.registrar_part_d_leave_management || item.registrarPartDLeaveManagement || reviewSummary.registrarPartDLeaveManagement,
+    leaveManagement: item.registrar_part_d_leave_management || item.registrarPartDLeaveManagement || reviewSummary.registrarPartDLeaveManagement || item.leaveManagement || item.leave_management || (item.payload?.form?.leaveManagement) || [],
   };
 };
 
@@ -978,20 +987,25 @@ export const submitPartDRegistrarReview = async ({
   subjectEmail,
   academicYear,
   score = 0,
+  remarks = "",
+  leaveManagement,
+  leave_management,
 }) => {
   if (!subjectEmail) {
     throw new Error("Missing subject email for Part D review.");
   }
 
-  // This used to PUT /appraisal-remarks/registrar-part-d/{email} - a route from an earlier
-  // three-state Part D spec that was never actually built on the backend (404). The endpoint
-  // that actually exists and does this job is POST /dashboard/part-d-release/{email}, which
-  // only accepts registrar_part_d_score + academic_year (no remarks field - the backend never
-  // persists Part D remarks; see backend_changes_requied.md if that's needed later).
-  return await api.post(`/dashboard/part-d-release/${encodeURIComponent(subjectEmail)}`, {
+  const payload = {
     registrar_part_d_score: n(score),
+    remarks: remarks || "",
     academic_year: academicYear || getActiveAcademicYear() || APP_INFO.DEFAULT_AY || "2026-2027",
-  });
+  };
+  const leaveRows = leaveManagement || leave_management;
+  if (Array.isArray(leaveRows)) {
+    payload.leave_management = leaveRows;
+  }
+
+  return await api.post(`/dashboard/part-d-release/${encodeURIComponent(subjectEmail)}`, payload);
 };
 
 const workflowForwardingFor = (role, subjectProfile = {}) => {

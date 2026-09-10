@@ -28,7 +28,7 @@ substitutions:
   _SERVICE_NAME: faculty-appraisal-frontend
   _REGION: asia-south1
   _AR_REPO: faculty-appraisal
-  _VITE_API_BASE_URL: https://faculty-appraisal-git-376777978967.asia-south1.run.app/api/v2
+  _VITE_API_BASE_URL: /api/v2
 
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}

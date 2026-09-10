@@ -257,9 +257,34 @@ export const standardReviewSummary = (...sourceInputs) => {
   assign("vcPartC", ["vcPartC", "vc_part_c", "vcPartCScore", "vc_part_c_score", "vcPartCTotal", "vc_part_c_total"]);
   assign("vcPartD", ["vcPartD", "vc_part_d", "vcPartDScore", "vc_part_d_score", "vcPartDTotal", "vc_part_d_total"]);
   assign("vcRemarks", ["vcRemarks", "vc_remarks"]);
+  assign("registrarTotal", ["registrarTotal", "registrar_total", "registrarScore", "registrar_score"]);
+  assign("registrarPartD", ["registrarPartD", "registrar_part_d", "registrarPartDScore", "registrar_part_d_score"]);
+  assign("registrarPartDScore", ["registrarPartDScore", "registrar_part_d_score", "registrarPartD", "registrar_part_d"]);
+  assign("registrarRemarks", ["registrarRemarks", "registrar_remarks", "registrarPartDRemarks", "registrar_part_d_remarks"]);
+  assign("registrarPartDRemarks", ["registrarPartDRemarks", "registrar_part_d_remarks", "registrarRemarks", "registrar_remarks"]);
+  assign("registrarPartDLeaveManagement", ["registrarPartDLeaveManagement", "registrar_part_d_leave_management"]);
 
   reviewsFromSources(sources).forEach((review) => {
     const role = normalizeReviewRole(review.reviewer_role || review.reviewerRole || review.role);
+    if (role === "registrar") {
+      const reviewSummary = reviewSummaryForRole(review);
+      const incomingScore = firstPresent(reviewSummary.partD, reviewSummary.total, review.registrar_part_d_score, review.registrarPartDScore);
+      if (incomingScore !== undefined) {
+        summary.registrarPartD = incomingScore;
+        summary.registrarPartDScore = incomingScore;
+        summary.registrarTotal = incomingScore;
+      }
+      if (reviewSummary.remarks !== undefined) {
+        summary.registrarRemarks = reviewSummary.remarks;
+        summary.registrarPartDRemarks = reviewSummary.remarks;
+      }
+      const sectionScores = parseMaybeJson(review.section_scores) || parseMaybeJson(review.sectionScores);
+      if (sectionScores && typeof sectionScores === "object" && sectionScores.registrar_part_d_leave_management) {
+        summary.registrarPartDLeaveManagement = sectionScores.registrar_part_d_leave_management;
+      }
+      return;
+    }
+
     const prefix = role === "center_head" || role === "hod"
       ? "hod"
       : ["director", "dean", "vc"].includes(role)

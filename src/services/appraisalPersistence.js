@@ -947,9 +947,31 @@ const normalizeReviewSectionScores = (scores = {}) =>{
 };
 
 const applyReviewToForm = (form = {}, review = {}) =>{
- const role = normalizeRoleForWorkflow(review.reviewer_role || review.reviewerRole || review.role);
- const roleField = REVIEW_FIELD_BY_ROLE[role];
- if (!roleField) return form;
+  const role = normalizeRoleForWorkflow(review.reviewer_role || review.reviewerRole || review.role);
+  if (role === "registrar") {
+    const rawScores = parseMaybeJson(
+      review.section_scores ||
+      review.sectionScores ||
+      review.review_scores ||
+      review.reviewScores ||
+      review.scores ||
+      review,
+    );
+    if (rawScores && typeof rawScores === "object") {
+      const regLeave = rawScores.registrar_part_d_leave_management || rawScores.leave_management || rawScores.leaveManagement;
+      if (Array.isArray(regLeave) && regLeave.length > 0) {
+        return {
+          ...form,
+          leaveManagement: regLeave,
+          leave_management: regLeave,
+          registrar_part_d_leave_management: regLeave,
+        };
+      }
+    }
+    return form;
+  }
+  const roleField = REVIEW_FIELD_BY_ROLE[role];
+  if (!roleField) return form;
 
  const rawScores = parseMaybeJson(
  review.section_scores ||
@@ -1729,14 +1751,27 @@ const normalizeFetchedAppraisal = (data = {}, scope = {}) =>{
  payload?.totals,
  );
 
+ const regRev = reviews.find(r => normalizeRoleForWorkflow(r.reviewer_role || r.reviewerRole || r.role) === "registrar");
+ const regScore = firstPresent(data.registrar_part_d_score, data.registrarPartDScore, regRev?.registrar_part_d_score, regRev?.registrarPartDScore, regRev?.part_d_score, regRev?.partDScore);
+ const regRemarks = firstPresent(data.registrar_part_d_remarks, data.registrarPartDRemarks, regRev?.remarks, regRev?.review_remarks);
+ const regReviewedAt = firstPresent(data.registrar_part_d_reviewed_at, data.registrarPartDReviewedAt, regRev?.reviewed_at);
+ const regSectionScores = parseMaybeJson(regRev?.section_scores) || parseMaybeJson(regRev?.sectionScores);
+ const regLeave = regSectionScores?.registrar_part_d_leave_management || data.registrar_part_d_leave_management || data.registrarPartDLeaveManagement;
+
  return {
- ...directData,
- docs,
- declaration,
- status: declaration?.status || data.status || directData.status,
- workflowStatus: declaration?.status || data.workflowStatus || data.workflow_status || directData.workflowStatus,
- ...(directForm ? { form: { ...directForm, docs } } : {}),
- ...(payload ? { payload: { ...payload, docs, ...(payloadForm ? { form: { ...payloadForm, docs } } : {}) } } : {}),
+   ...directData,
+   docs,
+   declaration,
+   status: declaration?.status || data.status || directData.status,
+   workflowStatus: declaration?.status || data.workflowStatus || data.workflow_status || directData.workflowStatus,
+   partDStatus: data.part_d_status || data.partDStatus || declaration?.part_d_status || directData.partDStatus,
+   registrarPartDScore: regScore !== undefined && regScore !== null && regScore !== "" ? Number(regScore) : directData.registrarPartDScore,
+   registrarPartDRemarks: regRemarks || directData.registrarPartDRemarks,
+   registrarPartDReviewedAt: regReviewedAt || directData.registrarPartDReviewedAt,
+   registrarPartDLeaveManagement: regLeave || directData.registrarPartDLeaveManagement,
+   ...(regLeave && Array.isArray(regLeave) ? { leaveManagement: regLeave, leave_management: regLeave } : {}),
+   ...(directForm ? { form: { ...directForm, docs, ...(regLeave && Array.isArray(regLeave) ? { leaveManagement: regLeave, leave_management: regLeave } : {}) } } : {}),
+   ...(payload ? { payload: { ...payload, docs, ...(payloadForm ? { form: { ...payloadForm, docs, ...(regLeave && Array.isArray(regLeave) ? { leaveManagement: regLeave, leave_management: regLeave } : {}) } } : {}) } } : {}),
  };
 };
 
