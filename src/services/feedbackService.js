@@ -15,19 +15,28 @@ const normalizeFeedback = (raw = {}) => ({
   submittedAt: raw.submitted_at || "",
 });
 
-export const submitFeedback = async ({ name = "", email, category, subject, message }) => {
+export const submitFeedback = async ({ name = "", email, category, subject, message, attachment = null }) => {
   if (!email) throw new Error("Email is required.");
   if (!category) throw new Error("Category is required.");
   if (!String(subject || "").trim()) throw new Error("Subject is required.");
   if (!String(message || "").trim()) throw new Error("Message is required.");
 
-  const result = await api.post("/feedback", {
+  const fields = {
     name: name?.trim() || undefined,
     email: email.trim().toLowerCase(),
     category,
     subject: subject.trim(),
     message: message.trim(),
-  });
+  };
+  let payload = fields;
+  if (attachment) {
+    payload = new FormData();
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined) payload.append(key, value);
+    });
+    payload.append("attachment", attachment);
+  }
+  const result = await api.post("/feedback", payload, attachment ? { headers: { "Content-Type": undefined } } : undefined);
   return result;
 };
 

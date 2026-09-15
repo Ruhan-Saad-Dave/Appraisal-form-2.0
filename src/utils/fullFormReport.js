@@ -504,6 +504,56 @@ const renderSection = ({
   </table>`;
 };
 
+const renderLeaveManagementSection = ({ section, rows = [] }) => {
+  const max = section.max;
+  const row = rows?.[0] || {};
+  const takenTotal = n(row.clTaken) + n(row.mlTaken) + n(row.odTaken) + n(row.coffTaken);
+  const outOfTotal = n(row.clOutOf) + n(row.mlOutOf) + n(row.odOutOf) + n(row.coffOutOf);
+  const hasTaken = [row.clTaken, row.mlTaken, row.odTaken, row.coffTaken].some(isFilledValue);
+  const hasOutOf = [row.clOutOf, row.mlOutOf, row.odOutOf, row.coffOutOf].some(isFilledValue);
+
+  return `
+  <h3>${safeHtml(section.title)} <span>(Max ${safeHtml(max)})</span></h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align:left">1. No. of leaves taken in the Year</th>
+        <th>CL</th>
+        <th>ML</th>
+        <th>OD</th>
+        <th>C/Off</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>&nbsp;</td>
+        <td class="c">${displayValue(row.clTaken)}</td>
+        <td class="c">${displayValue(row.mlTaken)}</td>
+        <td class="c">${displayValue(row.odTaken)}</td>
+        <td class="c">${displayValue(row.coffTaken)}</td>
+        <td class="c b">${hasTaken ? takenTotal : "&nbsp;"}</td>
+      </tr>
+      <tr>
+        <td class="b">Out of</td>
+        <td class="c">${displayValue(row.clOutOf)}</td>
+        <td class="c">${displayValue(row.mlOutOf)}</td>
+        <td class="c">${displayValue(row.odOutOf)}</td>
+        <td class="c">${displayValue(row.coffOutOf)}</td>
+        <td class="c b">${hasOutOf ? outOfTotal : "&nbsp;"}</td>
+      </tr>
+    </tbody>
+  </table>
+  <table>
+    <tbody>
+      <tr><td class="b">2. No. of Late Remarks in the Year</td><td class="c">${displayValue(row.lateRemarks)}</td></tr>
+      <tr><td class="b">3. Total Actual Working Days for the current academic year</td><td class="c">${displayValue(row.workingDays)}</td></tr>
+      <tr><td class="b">4. Management of leaves</td><td class="c">${displayValue(row.managementRating)}</td></tr>
+      <tr class="tr"><td class="c b" style="text-align:right">Total Score out of (${safeHtml(max)}) =</td><td class="c b">${isFilledValue(row.score) ? displayValue(row.score) : "0"}</td></tr>
+    </tbody>
+  </table>`;
+};
+
 const buildSignaturePage = ({
   facultyName = "",
   submittedAt = "",
@@ -992,14 +1042,16 @@ ${PRINT_REPORT_CSS}
   ${(partDSections.length ? partDSections : [{ key: "acr", title: `Part D - ${partDTitle}`, max: 50, fields: [["label", "Attribute"]] }])
     .filter((s) => isSectionReportable(form, s))
     .map((s) =>
-      renderSection({
-        section: s,
-        rows: form[s.key] || form.acr,
-        docs,
-        scoreRoles: resolvedPartDScoreRoles,
-        roleLabel,
-        showTotal: true,
-      }),
+      s.key === "leaveManagement"
+        ? renderLeaveManagementSection({ section: s, rows: form[s.key] })
+        : renderSection({
+            section: s,
+            rows: form[s.key] || form.acr,
+            docs,
+            scoreRoles: resolvedPartDScoreRoles,
+            roleLabel,
+            showTotal: true,
+          }),
     )
     .join("")}
 
@@ -1188,9 +1240,9 @@ ${PRINT_REPORT_CSS}
   <tr class="tr"><td colspan="2" class="c b">Total Score (Max 10)</td><td class="c">${projects.reduce((a, p) => a + n(p.score), 0) > 0 ? projects.reduce((a, p) => a + n(p.score), 0).toFixed(1) : "&nbsp;"}</td></tr></table>`
   }
   <h3>(v) Qualification Enhancement (Max 10)</h3>
-  <table><tr><th>SN</th><th>Qualification / Category</th><th>Self Score</th></tr>
-  ${quals.map((q, i) => `<tr><td class="c">${i + 1}</td><td>${displayValue(q.label)}</td><td class="c">${displayValue(String(q.score ?? "").trim() ? clampScore(q.score, SCORE_LIMITS.qualificationRow) : "")}</td></tr>`).join("")}
-  <tr class="tr"><td colspan="2" class="c b">Total Score (Max 10)</td><td class="c">${sumSectionScore(quals, 10, "score", SCORE_LIMITS.qualificationRow) > 0 ? sumSectionScore(quals, 10, "score", SCORE_LIMITS.qualificationRow).toFixed(1) : "&nbsp;"}</td></tr></table>
+  <table><tr><th>SN</th><th>Qualification / Category</th><th>Awarding Body</th><th>Date</th><th>Self Score</th></tr>
+  ${quals.map((q, i) => `<tr><td class="c">${i + 1}</td><td>${displayValue(q.label)}</td><td>${displayValue(q.awardingBody)}</td><td class="c">${displayValue(q.date)}</td><td class="c">${displayValue(String(q.score ?? "").trim() ? clampScore(q.score, SCORE_LIMITS.qualificationRow) : "")}</td></tr>`).join("")}
+  <tr class="tr"><td colspan="4" class="c b">Total Score (Max 10)</td><td class="c">${sumSectionScore(quals, 10, "score", SCORE_LIMITS.qualificationRow) > 0 ? sumSectionScore(quals, 10, "score", SCORE_LIMITS.qualificationRow).toFixed(1) : "&nbsp;"}</td></tr></table>
   <h3>B. Students' Feedback (Max 10)</h3>
   <table><tr><th>SN</th><th>Course Code/Name</th><th>First Feedback(%)</th><th>Second Feedback(%)</th><th>Average</th><th>Self Score</th></tr>
   ${feedback.map((f, i) => `<tr><td class="c">${i + 1}</td><td>${displayValue(f.code)}</td><td class="c">${displayValue(f.fb1)}</td><td class="c">${displayValue(f.fb2)}</td><td class="c">${isFilledValue(f.fb1) || isFilledValue(f.fb2) ? ((n(f.fb1) + n(f.fb2)) / ((isFilledValue(f.fb1) ? 1 : 0) + (isFilledValue(f.fb2) ? 1 : 0) || 1)).toFixed(2) : "&nbsp;"}</td><td class="c">${displayValue(f.score)}</td></tr>`).join("")}

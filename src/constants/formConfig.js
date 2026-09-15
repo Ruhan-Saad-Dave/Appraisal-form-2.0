@@ -1,5 +1,3 @@
-import { SCHOOL_OPTIONS, SOEMR_SCHOOL } from "./universityHierarchy";
-
 export const SOCIETY_LABELS = [
   "Induction Program",
   "Unnat Bharat Abhiyan",
@@ -37,7 +35,6 @@ export const ACR_DETAIL_POINTS = {
     "Openness to change, new tools, or new processes, Response to feedback and coaching, Handling of unexpected/crisis situations",
   ],
 };
-
 export const createAcrRows = (rows = []) => {
   const sourceRows = Array.isArray(rows) ? rows : [];
   return ACR_LABELS.map((label, index) => {
@@ -45,7 +42,6 @@ export const createAcrRows = (rows = []) => {
     return { ...savedRow, label };
   });
 };
-
 export const MAX_SCORES = {
   PART_A: 150,
   PART_B: 350,
@@ -122,10 +118,3 @@ export const SCORING_RULES = {
     ]
   }
 };
-
-export const SCHOOL_CONFIG = Object.fromEntries(
-  SCHOOL_OPTIONS.map((school) => [
-    school.value,
-    { hasHod: school.value === SOEMR_SCHOOL.label },
-  ])
-);

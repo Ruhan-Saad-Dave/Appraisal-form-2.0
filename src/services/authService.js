@@ -1,8 +1,13 @@
 import { api } from "./api";
 import { clearUserSession, storeUserSession } from "../auth/session";
+import { refreshSchoolsOnce } from "./schoolsService";
 
 export const login = async (email, password) => {
   const data = await api.post("/auth/login", { email, password });
+  // Make sure the live schools list (incl. admin-created "dynamic" schools) is loaded BEFORE we
+  // canonicalise and persist this user's school - otherwise a dynamic-school user's `school`
+  // gets stored empty and their review queue / routing never matches. Non-blocking on failure.
+  await refreshSchoolsOnce().catch(() => {});
   storeUserSession({ token: data.token, profile: data.profile });
   return data;
 };

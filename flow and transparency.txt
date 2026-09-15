@@ -2,6 +2,8 @@
 
 ## Updated Hierarchy
 
+**Important — this tree reflects the current configured setup, not a fixed structure.** Schools, which Dean track each sits under, whether a school has a HOD/Director layer, and the department list under each school are all admin/Director-configurable — a school or department can be added, removed, or reassigned at any time. So the specific schools (SoCSEA, SoBB, SoCE, SoEMR, SoC, SoMCS, SoD, SoAA, SoHSS) and SoEMR's four named departments below reflect the **current setup**, not a permanent fixed list.
+
 ```
 Vice Chancellor (VC)
 │
@@ -107,7 +109,11 @@ Separately, Part D of the Dean form goes directly to the Registrar. The Registra
 
 ### Transparency in Flow:
 
-In the VC dashboard, teaching appraisal cards and the opened VC review form show an "Average Score" before the VC score, calculated from the available Parts A, B, C, and E scores submitted before the VC stage (the self/faculty score and the applicable prior reviewer scores — HOD, Director, Dean — in that chain). This score summary is displayed to one decimal place. In the VC review form's Personal Information section, ExpDyp, ExpPrev, and ExpTotal remain hidden for display clarity.
+In the VC dashboard, teaching appraisal cards and the opened VC review form show an "Average Score" before the VC score, calculated from the available Parts A, B, C, and E scores submitted before the VC stage (the self/faculty score and the applicable prior reviewer scores — HOD, Director, Dean — in that chain). This score summary is displayed to one decimal place; it is not shown when the form's originator is a Dean, since there's no prior reviewer stage below the Dean to average.
+
+ExpDyp, ExpPrev, and ExpTotal are collapsed into a single "Experience" field for display clarity in the Faculty Information section — and this applies across every reviewer's screen (HOD, Director, Dean, VC, and self), not just the VC's.
+
+The score-hiding rule described below (each reviewer sees only the self-score, not intermediate reviewers' scores, until the VC) holds for the reviewer forms checked; it wasn't separately re-verified on every single reviewer screen, so treat it as the standing rule and flag it if any screen is ever found showing more than it should.
 
 #### For Faculty:
 
@@ -213,7 +219,13 @@ When the Center Head fills the form and submits it, Parts A, B, C, and E get for
 
 ---
 
-### 4) Non-Teaching Staff — unchanged (no Part A–E split, no Part D, no release-gate logic — confirmed untouched by this update)
+### 4) Non-Teaching Staff — unchanged in structure (no Part A–E split, no Part D, no release-gate logic — confirmed untouched by this update), but with one configurable bypass
+
+**Undocumented-until-now bypass:** the Registrar stage is not unconditionally present for every non-teaching submitter. There's an admin-controlled setting per account that can skip it:
+- A Reporting Officer's own appraisal normally routes `Registrar → VC`, but if this flag is explicitly set to `false` for that Reporting Officer, their chain becomes `VC` directly — the Registrar stage is skipped entirely for that person's own form.
+- Similarly, a Staff member's chain is normally `Reporting Officer → Registrar → VC`, but if the flag is explicitly `false`, it becomes `Reporting Officer → VC` — again skipping the Registrar stage.
+
+This is opt-out (defaults to going through the Registrar) and is set per-account by an admin; it's not exposed anywhere else in this doc's routing description below, which assumes the default (Registrar always in the chain).
 
 #### For Staff:
 
@@ -243,11 +255,17 @@ When the Registrar fills the form and submits it, the form gets forwarded to the
 
 ---
 
-## 5) NEW — Role Ownership Transfer (HOD, Director, Dean)
+## 5) IMPLEMENTED — Role Ownership Transfer (HOD, Director, Dean)
+
+**Status: this section is now implemented, including UI — not backend-only as originally scoped.** See "What's actually built" below for the gap between the original spec and current code.
 
 **What this covers:** an authority-role holder (HOD, Director, or Dean) can be replaced by a newly appointed person mid-cycle. When this happens, the outgoing person's ownership of that role is transferred to the incoming person, and the outgoing person reverts to being a Faculty member (submitting their own appraisal as Faculty going forward, routed to whichever HOD/Director/Dean now covers them).
 
-This is a **backend/data-model change only** — no UI changes are implied or required by this section; it's about how role assignment is represented and resolved under the hood so that whatever admin action eventually triggers a transfer has the right structure to write to.
+### What's actually built
+
+Contrary to this section's original framing as "backend/data-model only," there is a real, working UI on top of this:
+- A VC-facing screen for transferring Director (per school) and Dean (per Dean track) ownership, showing the current holder(s) and a "Transfer" action with a confirmation dialog.
+- A Director-facing flow for managing their own school — creating departments/programs, creating HODs, assigning faculty — which also handles HOD transfer/removal and HOD account deactivation.
 
 ### Core principle: a role is an assignable position, not a fixed attribute of a person
 
@@ -267,6 +285,8 @@ RoleAssignment
 └── end_date            (null while active)
 ```
 
+**As actually used today**, this is narrower than the target model above: the assignment id, role type, scope, the holder's email/name, and the start date. The active/inactive status and end date aren't yet surfaced anywhere in the UI, and which "scope" a role applies to (department for HOD, school for Director, Dean-track for Dean) is inferred by convention from the role type rather than stored as its own explicit field. This may still exist further back in the system; it's just not something the UI shows or relies on yet.
+
 Department, School, and Dean-type records no longer store a direct `hod_id` / `director_id` / `dean_id` foreign key to a user. Instead, routing always resolves through the **currently active** `RoleAssignment` row for that scope:
 
 - Faculty's HOD = the active `RoleAssignment` where `role_type = "HOD"` and `scope_id = faculty.department_id`
@@ -283,13 +303,15 @@ Department, School, and Dean-type records no longer store a direct `hod_id` / `d
 
 ### Rules that must hold regardless of implementation details
 
-- **Only one active `RoleAssignment` per scope at a time** — enforce with a unique constraint on `(role_type, scope_id)` where `status = "active"`.
+- **Only one active `RoleAssignment` per scope at a time** — **not enforced today.** This is a known, called-out gap: nothing currently stops two accounts from both holding the same role for the same scope (e.g. two Directors for one school), and the transfer screen shows a visible warning banner when it detects more than one current holder for a scope, telling the admin it needs manual cleanup — transferring one of them doesn't resolve the duplicate on its own. So this remains a target invariant, not a guaranteed one yet.
 - **Historical integrity is untouched.** Any appraisal form already scored by the outgoing person keeps that person's name/ID as the reviewer of record. A transfer never rewrites who reviewed a past form — it only changes who reviews *future* ones.
 - **Snapshot the reviewer at submission time.** Every appraisal form should store the specific `user_id` (not just the role) who acted at each stage, resolved from the active `RoleAssignment` at the moment the form reached that stage. This is what protects historical records from a later transfer.
 - **The outgoing person's own faculty appraisal chain must be re-resolved.** The moment they revert to Faculty, they need a department assignment (if they don't already have one from before they were promoted) so their own future appraisal form routes correctly.
 - **Demotion removes write/approval permission only — it never deletes or alters historical data.** See the dedicated rule below.
 
-### Confirmed rule: historical data is never deleted, moved, or edited on transfer — read-only access survives demotion
+### Target rule (not yet implemented in the frontend): historical data is never deleted, moved, or edited on transfer — read-only access survives demotion
+
+**Status check:** no evidence of this was found built out yet. Scores are still stored per-role on the form (an HOD score, a Director score, a Dean score, a VC score) rather than snapshotted against the specific person who acted, and there's no "look up my past reviews as HOD/Director/Dean" screen anywhere — the closest existing thing shows one form's own approval history, not a person's cross-year reviewing history. Treat everything below as the intended design, not a shipped guarantee, until the snapshot behavior and the email+academic-year lookup actually exist.
 
 When a person is transferred out of a role (HOD, Director, or Dean), what actually changes is narrow: **their permission to act as an approver in that role going forward is revoked.** Nothing about their past activity is touched.
 
@@ -318,9 +340,9 @@ FormReviewStage
 
 A query like *"show me every form where `reviewer_user_id` = this person's ID, for `academic_year` = 2024–25"* is then all that's needed to serve the demoted person's history — completely independent of whatever role they hold today, and independent of whoever holds that position now.
 
-### Confirmed rule: in-progress forms at the moment of transfer
+### Rule: in-progress forms at the moment of transfer
 
-If a form is sitting unscored in the outgoing HOD/Director/Dean's queue at the moment of transfer, it **moves immediately to the newly appointed person** — the position owns the queue, not the individual. Concretely:
+If a form is sitting unscored in the outgoing HOD/Director/Dean's queue at the moment of transfer, it **moves immediately to the newly appointed person** — the position owns the queue, not the individual. This is the stated promise of the transfer screen itself ("any in-progress forms in their queue move to the incoming person automatically"), and it lines up with how routing already resolves the current reviewer dynamically rather than pinning a form to a specific person. Concretely:
 
-- Any form in `pending` or `in_review` status at that scope, where the current stage's reviewer resolves to the outgoing person's `RoleAssignment`, is automatically re-resolved to the incoming person's new `RoleAssignment` as soon as it goes active — no manual reassignment step needed, since routing already resolves via the active `RoleAssignment` rather than a static user reference (see "What happens on a transfer" above).
+- Any form still awaiting review at that scope, where the current stage's reviewer resolves to the outgoing person, is automatically re-resolved to the incoming person as soon as the transfer goes through — no manual reassignment step needed, since routing already resolves via whoever currently holds the role rather than a static link (see "What happens on a transfer" above).
 - This applies only to forms **not yet scored** at that stage. Anything the outgoing person already scored and submitted before the transfer keeps their name as reviewer of record, per the historical-integrity rule above — a transfer never rewrites completed work, only reassigns what's still pending.

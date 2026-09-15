@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { listSchoolDepartments, addSchoolDepartment, removeSchoolDepartment } from "../../services/departmentsService";
 import { fetchSchoolHods, transferRole, removeRoleAssignment, deactivateHodAccount } from "../../services/roleAssignmentsService";
 import { fetchSchoolFaculty, assignFacultyToProgram } from "../../services/facultyAssignmentService";
-import { isSoemrSchool, SOEMR_DEPARTMENTS } from "../../constants/universityHierarchy";
+import { schoolUnitLabel } from "../../constants/universityHierarchy";
 import CreateHodForm from "./CreateHodForm";
 import AppraisalHeaderImage from "../AppraisalHeaderImage";
+import { Layers, ShieldCheck, Users, Check, Plus, Trash2 } from "lucide-react";
+import "./ManageDepartmentsPanel.css";
 
 const initialsFor = (value = "") => {
   const trimmed = String(value).trim();
@@ -61,14 +63,6 @@ function Modal({ title, subtitle, onClose, children, width = 520, icon, accent =
   );
 }
 
-function StepGlyph({ paths, size = 15 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {paths.map((d) => <path key={d} d={d} />)}
-    </svg>
-  );
-}
-
 // - Step indicator bar shared by all 3 steps - each step gets its own icon (not just a number)
 // so the bar reads at a glance instead of requiring the label text to explain what it is.
 function StepBar({ step, onStepChange, unitLabel }) {
@@ -78,12 +72,13 @@ function StepBar({ step, onStepChange, unitLabel }) {
     { id: 3, label: "Assign Faculty", icon: ["M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2", "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z", "M23 21v-2a4 4 0 0 0-3-3.87", "M16 3.13a4 4 0 0 1 0 7.75"] },
   ];
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "#fff", borderRadius: 16, padding: "16px 24px", boxShadow: "0 12px 32px rgba(15,23,42,0.06)", border: "1px solid #e5e7eb", flexWrap: "wrap" }}>
+    <div className="program-management__steps" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "#fff", borderRadius: 16, padding: "16px 24px", boxShadow: "0 12px 32px rgba(15,23,42,0.06)", border: "1px solid #e5e7eb", flexWrap: "wrap" }}>
       {steps.map((s, idx) => (
         <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, flex: idx < steps.length - 1 ? "1 1 0%" : "0 0 auto" }}>
           <button
             type="button"
             onClick={() => onStepChange(s.id)}
+            aria-current={step === s.id ? "step" : undefined}
             style={{ display: "flex", alignItems: "center", gap: 11, border: "none", background: step === s.id ? "#f5f3ff" : "transparent", cursor: "pointer", fontFamily: "inherit", padding: "8px 14px 8px 8px", borderRadius: 12, transition: "background .15s", whiteSpace: "nowrap" }}
           >
             <span
@@ -101,7 +96,7 @@ function StepBar({ step, onStepChange, unitLabel }) {
                 transition: "background .15s, color .15s, box-shadow .15s",
               }}
             >
-              {step > s.id ? <StepGlyph paths={["M20 6 9 17l-5-5"]} size={15} /> : <StepGlyph paths={s.icon} size={16} />}
+              {step > s.id ? <Check size={17} /> : s.id === 1 ? <Layers size={17} /> : s.id === 2 ? <ShieldCheck size={17} /> : <Users size={17} />}
             </span>
             <span style={{ fontSize: 13, fontWeight: 800, color: step === s.id ? "#0f172a" : "#64748b" }}>{s.label}</span>
           </button>
@@ -166,7 +161,7 @@ function StepPrograms({ school, unitLabel, unitLabelLower, isDepartmentSchool, d
             disabled={saving || !newName.trim()}
             style={{ padding: "10px 20px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: saving || !newName.trim() ? "not-allowed" : "pointer", opacity: saving || !newName.trim() ? 0.6 : 1, fontFamily: "inherit" }}
           >
-            {saving ? "Adding..." : `+ Add ${unitLabel}`}
+            <Plus size={16} aria-hidden="true" /> {saving ? "Adding..." : `Add ${unitLabel}`}
           </button>
         </form>
         {(localError || error) && (
@@ -186,8 +181,8 @@ function StepPrograms({ school, unitLabel, unitLabelLower, isDepartmentSchool, d
                 <span style={{ width: 30, height: 30, borderRadius: 9, background: "#ecfeff", color: "#0891b2", border: "1px solid #cffafe", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>{dept.name.slice(0, 1).toUpperCase()}</span>
                 <span style={{ fontSize: 13.5, fontWeight: 800, color: "#0f172a", overflowWrap: "anywhere" }}>{dept.name}</span>
               </div>
-              <button type="button" onClick={() => handleRemove(dept)} style={{ border: "1px solid #fecaca", background: "#fff5f5", color: "#dc2626", borderRadius: 8, padding: "7px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-                Remove
+              <button type="button" title={`Remove ${dept.name}`} aria-label={`Remove ${dept.name}`} onClick={() => handleRemove(dept)} style={{ border: "1px solid #fecaca", background: "#fff5f5", color: "#dc2626", borderRadius: 8, padding: "7px 10px", fontWeight: 800, fontSize: 11.5, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
+                <Trash2 size={16} aria-hidden="true" />
               </button>
             </div>
           ))
@@ -753,15 +748,12 @@ function FacultyRow({ person, isLast, options, school, onAssigned }) {
 }
 
 // Director-only panel for managing the department/program list of their own school, which HOD
-// (if any) owns each one, and which faculty individually report to which HOD. SoEMR is
-// organized into departments (one HOD per department); every other school is organized into
-// programs, where one HOD can be assigned to several programs at once - see
-// backend_changes_requied.md / New_backend.md. Built as a 3-step wizard: Create Program ->
-// Create HOD -> Assign Faculty, since each step depends on the previous one's data existing.
-export default function ManageDepartmentsPanel({ school }) {
-  const isDepartmentSchool = isSoemrSchool(school);
-  const unitLabel = isDepartmentSchool ? "Department" : "Program";
+// (if any) owns each one, and which faculty individually report to which HOD. The unit label is
+// read from live school config so schools can choose departments or programs dynamically.
+export default function ManageDepartmentsPanel({ school, headerControls = null }) {
+  const unitLabel = schoolUnitLabel(school);
   const unitLabelLower = unitLabel.toLowerCase();
+  const isDepartmentSchool = unitLabelLower === "department";
 
   const [step, setStep] = useState(1);
   const [departments, setDepartments] = useState([]);
@@ -774,13 +766,6 @@ export default function ManageDepartmentsPanel({ school }) {
     setLoading(true);
     try {
       let [departmentList, hodList] = await Promise.all([listSchoolDepartments(school), fetchSchoolHods(school)]);
-      // SoEMR previously ran on 4 hardcoded departments (SOEMR_DEPARTMENTS) before departments
-      // became Director-managed. Seed them once so existing SoEMR HOD/faculty routing keeps
-      // working the first time this panel loads against a school with zero departments on record.
-      if (isDepartmentSchool && departmentList.length === 0) {
-        await Promise.all(SOEMR_DEPARTMENTS.map((name) => addSchoolDepartment(school, name).catch(() => null)));
-        departmentList = await listSchoolDepartments(school);
-      }
       setDepartments(departmentList);
       setExistingHods(hodList);
     } catch (err) {
@@ -788,7 +773,7 @@ export default function ManageDepartmentsPanel({ school }) {
     } finally {
       setLoading(false);
     }
-  }, [school, unitLabelLower, isDepartmentSchool]);
+  }, [school, unitLabelLower]);
 
   useEffect(() => {
     const timer = setTimeout(refresh, 0);
@@ -798,14 +783,14 @@ export default function ManageDepartmentsPanel({ school }) {
   const assignedHodCount = existingHods.filter((h) => hodPrograms(h).length > 0).length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%", boxSizing: "border-box" }}>
+    <div className="program-management" style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%", boxSizing: "border-box" }}>
       <style>{`
         .mdp-hod-row { transition: background .15s ease; }
         .mdp-hod-row:hover { background: #fafcfc; }
       `}</style>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 18, background: "#fff", borderRadius: 14, padding: "16px 24px", boxShadow: "0 10px 28px rgba(17,24,39,0.06)", border: "1px solid #e5e7eb" }}>
+      <div className="program-management__header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 18, background: "#fff", borderRadius: 14, padding: "16px 24px", boxShadow: "0 10px 28px rgba(17,24,39,0.06)", border: "1px solid #e5e7eb" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <AppraisalHeaderImage logo="dypiu" />
+          <AppraisalHeaderImage logo="dypiu" height={68} />
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#ede9fe,#ddd6fe)", color: "#7c3aed", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z" /><path d="M5 10.5V16c0 1.5 3.13 3 7 3s7-1.5 7-3v-5.5" /><path d="M21 9v6.5" /></svg>
@@ -818,8 +803,10 @@ export default function ManageDepartmentsPanel({ school }) {
             </div>
           </div>
         </div>
-        <AppraisalHeaderImage logo="iqas" />
+        <AppraisalHeaderImage logo="iqas" height={68} />
       </div>
+
+      {headerControls}
 
       <StepBar step={step} onStepChange={setStep} unitLabel={unitLabel} />
 

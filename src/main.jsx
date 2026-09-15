@@ -9,6 +9,7 @@ import '@fontsource/inter/latin-800.css'
 import '@fontsource/inter/latin-900.css'
 import './index.css'
 import App from './App.jsx'
+import ReviewFeedbackProvider from './components/ReviewFeedbackProvider.jsx'
 
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -26,7 +27,9 @@ document.addEventListener('keydown', (e) => {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <ReviewFeedbackProvider>
+        <App />
+      </ReviewFeedbackProvider>
     </BrowserRouter>
   </StrictMode>,
 )

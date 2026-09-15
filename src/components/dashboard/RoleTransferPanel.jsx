@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SCHOOL_OPTIONS, DEAN_TRACKS } from "../../constants/universityHierarchy";
+import { useSchools } from "../../services/schoolsService";
 import RoleTransferForm from "./RoleTransferForm";
 
 const DEAN_TRACK_OPTIONS = [
@@ -60,6 +61,7 @@ function TransferCard({ title, subtitle, accent, options, value, onChange, roleT
 // VC-only: transfer Director or Dean ownership to a newly appointed person. HOD transfer
 // lives on the Director dashboard instead, next to each department (Director owns that scope).
 export default function RoleTransferPanel() {
+  useSchools(); // subscribes to live schools data so SCHOOL_OPTIONS below re-renders fresh
   const directorSchools = SCHOOL_OPTIONS.filter((school) => school.value !== "CISR");
   const [directorSchool, setDirectorSchool] = useState(directorSchools[0]?.value || "");
   const [deanTrack, setDeanTrack] = useState(DEAN_TRACK_OPTIONS[0].value);

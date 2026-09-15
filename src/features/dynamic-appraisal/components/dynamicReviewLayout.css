@@ -1,0 +1,126 @@
+/* Header */
+.dynamic-review-header { display: flex; align-items: center; gap: 16px; padding: 22px 26px; border: 1px solid #e2e8f0; border-radius: 14px; background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%); box-shadow: 0 1px 3px rgba(15,23,42,0.04); }
+.dynamic-review-header-icon { display: grid; place-items: center; width: 50px; height: 50px; flex-shrink: 0; border: 1px solid #d8dcff; border-radius: 12px; background: #eef2ff; color: #4f46e5; }
+.dynamic-review-heading { flex: 1; min-width: 0; }
+.dynamic-review-eyebrow { display: inline-flex; align-items: center; gap: 6px; color: #4f46e5; background: #eef2ff; border-radius: 999px; padding: 3px 10px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; }
+.dynamic-review-heading h2 { margin: 8px 0 6px; color: #0f172a; font-size: 22px; line-height: 1.3; font-weight: 800; }
+.dynamic-review-heading p { margin: 0; color: #64748b; font-size: 13px; overflow-wrap: anywhere; }
+.dynamic-review-back { display: inline-flex; align-items: center; gap: 7px; padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #475569; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; }
+.dynamic-review-back:hover { background: #f8fafc; border-color: #94a3b8; }
+
+/* Smooth transition when switching between Part A/B/C/D and Summary. The content
+   remounts on tab change (keyed by activeKey), so a simple fade+rise animation on
+   mount is enough — no JS-driven transition needed. */
+@keyframes dynamicReviewTabIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.dynamic-review-tab-content { display: grid; gap: 20px; animation: dynamicReviewTabIn 220ms ease; }
+@media (prefers-reduced-motion: reduce) { .dynamic-review-tab-content { animation: none; } }
+
+/* Stepper-style part navigation */
+.dynamic-review-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border-radius: 14px; background: linear-gradient(135deg, #f8fafc 0%, #eef1f6 100%); border: 1px solid #e2e8f0; }
+.dynamic-review-nav button { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 16px; background: #fff; color: #64748b; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,0.03); transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease; }
+.dynamic-review-nav button:hover { color: #1e293b; background: #f8fafc; border-color: #cbd5e1; transform: translateY(-1px); }
+.dynamic-review-nav button[aria-current="page"] { background: #1e293b; color: #fff; border-color: #1e293b; box-shadow: 0 8px 18px rgba(15,23,42,0.24); }
+.dynamic-review-nav-step { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 999px; background: rgba(100,116,139,0.14); color: inherit; font-size: 10.5px; font-weight: 800; flex-shrink: 0; }
+.dynamic-review-nav button[aria-current="page"] .dynamic-review-nav-step { background: rgba(255,255,255,0.22); }
+.dynamic-review-nav-summary { margin-left: auto; }
+.dynamic-review-nav-summary:not([aria-current="page"]) { background: #fff7ed; border-color: #fde68a; color: #92400e; }
+.dynamic-review-nav-summary:not([aria-current="page"]):hover { background: #fef3c7; border-color: #fcd34d; color: #78350f; }
+.dynamic-review-layout button:focus-visible { outline: 2px solid #334155; outline-offset: 3px; }
+
+/* Previous approval-chain reviewers' scores and remarks, shown once above Part A */
+.dynamic-review-previous-feedback { display: grid; gap: 12px; }
+.dynamic-review-previous-feedback h3 { margin: 0; font-size: 12.5px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: .04em; }
+.dynamic-review-previous-feedback-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.dynamic-review-previous-feedback-card { position: relative; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; padding: 16px 16px 16px 18px; overflow: hidden; transition: box-shadow 150ms ease, transform 150ms ease; }
+.dynamic-review-previous-feedback-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent, #64748b); }
+.dynamic-review-previous-feedback-card:hover { box-shadow: 0 10px 24px rgba(15,23,42,0.08); transform: translateY(-1px); }
+.dynamic-review-previous-feedback-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.dynamic-review-previous-feedback-avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; background: var(--accent-bg, #f1f5f9); color: var(--accent, #475569); font-weight: 800; font-size: 13px; flex-shrink: 0; }
+.dynamic-review-previous-feedback-role { flex: 1; min-width: 0; font-size: 13px; font-weight: 800; color: #1e293b; overflow-wrap: anywhere; }
+.dynamic-review-previous-feedback-score { background: var(--accent-bg, #f1f5f9); color: var(--accent, #475569); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.dynamic-review-previous-feedback-remarks { margin: 0; font-size: 12.5px; color: #475569; line-height: 1.6; white-space: pre-wrap; }
+
+/* One table's section within a Part — NOT its own boxed card; tables in the
+   same Part share one continuous flow, separated only by a divider line, so
+   multiple tables never look like a stack of separate white boxes. */
+.dynamic-review-table-card { border: none; background: transparent; border-top: 1px solid #eef0f4; }
+.dynamic-review-table-card:first-child { border-top: none; }
+.dynamic-review-table-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 12px; }
+.dynamic-review-table-title { display: flex; align-items: center; gap: 8px; color: #4338ca; font-weight: 800; font-size: 14.5px; min-width: 0; }
+.dynamic-review-table-title span:not(.appraisal-subsection-icon) { overflow-wrap: anywhere; }
+.dynamic-review-stat-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.dynamic-review-stat-pill { display: inline-flex; align-items: baseline; gap: 5px; border-radius: 999px; padding: 5px 12px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.dynamic-review-stat-pill b { font-size: 13px; font-weight: 800; }
+.dynamic-review-stat-pill--faculty { background: #eef2ff; color: #4338ca; }
+.dynamic-review-stat-pill--authority { background: #fff7ed; color: #9a3412; }
+.dynamic-review-stat-pill--max { background: #f1f5f9; color: #475569; }
+.dynamic-review-table-card-body { padding: 0 0 6px; min-width: 0; }
+.dynamic-review-table-card-body .fa-section-card, .dynamic-review-table-card-body .appraisal-section-card { margin-bottom: 0 !important; border: none !important; box-shadow: none !important; min-width: 0 !important; }
+.dynamic-review-table-card-body .appraisal-part-header { display: none !important; }
+.dynamic-review-table-card-body > div > div:nth-child(2) { padding-top: 0 !important; min-width: 0 !important; }
+/* Let every column share the card's actual width instead of forcing the shared
+   1080px table minimum (meant for the much wider Standard/Creative forms) — a
+   short dynamic table (a handful of columns) should never need x-scroll just
+   because of that fixed floor, and a genuinely wide table still scrolls inside
+   its own .dynamic-appraisal-table wrapper (overflow-x: auto there), never the
+   page. min-width: 0 on every ancestor stops the wide table from stretching its
+   flex/grid ancestors and pushing a page-level horizontal scrollbar. */
+.dynamic-review-layout, .dynamic-review-layout * { min-width: 0; }
+.dynamic-review-table-card-body table { width: 100% !important; min-width: 0 !important; border: 1px solid #cbd5e1 !important; border-radius: 6px !important; box-shadow: none !important; }
+.dynamic-review-table-card-body table th { border-color: #cbd5e1 !important; }
+.dynamic-review-table-card-body table td { border-color: #dde3ec !important; }
+
+/* Per-part footer: save progress without leaving the review flow */
+.dynamic-review-part-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 22px; padding-top: 18px; border-top: 1px solid #e2e8f0; }
+.dynamic-review-part-footer-status { color: #64748b; font-size: 12px; margin-right: auto; }
+.dynamic-review-part-footer button { border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 750; font-family: inherit; cursor: pointer; transition: filter 150ms ease; }
+.dynamic-review-part-footer button:not(:disabled):hover { filter: brightness(0.97); }
+.dynamic-review-part-footer button:disabled { cursor: not-allowed; opacity: 0.7; }
+.dynamic-review-btn-next { background: #4f46e5; color: #fff; border: none; box-shadow: 0 8px 18px rgba(79,70,229,0.25); }
+
+/* Additional information — surfaced near the top of the summary, not buried */
+.dynamic-review-other-info { border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; padding: 14px 16px; margin-bottom: 18px; }
+.dynamic-review-other-info h3 { margin: 0 0 6px; font-size: 12.5px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: .04em; }
+.dynamic-review-other-info p { margin: 0; color: #1e293b; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; }
+
+/* Detailed breakdown table (part-level rows only). Column widths come from the
+   explicit <colgroup> in the JSX (one score column looking much wider than the
+   others, headers wrapping to 3 lines while neighbours wrap to 2, etc. otherwise) —
+   table-layout: fixed here just makes the table actually honour those widths
+   instead of resizing columns to fit each cell's content. */
+.dynamic-review-summary { width: 100%; min-width: 420px; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.dynamic-review-summary th, .dynamic-review-summary td { padding: 12px 16px; border: 1px solid #e2e8f0; text-align: right; color: #334155; overflow-wrap: break-word; }
+.dynamic-review-summary th:first-child, .dynamic-review-summary td:first-child { text-align: left; }
+.dynamic-review-summary thead { background: #f8fafc; }
+.dynamic-review-summary-part, .dynamic-review-summary tfoot { background: #eef2ff; font-weight: 750; }
+.dynamic-review-summary-part button { background: transparent; border: 0; padding: 0; font: inherit; color: #4338ca; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.dynamic-review-summary-note { color: #64748b; font-size: 12px; line-height: 1.6; margin-top: 14px; }
+
+/* Authority action card */
+.dynamic-review-authority-card { border: 1px solid #fde68a; border-radius: 12px; background: #fffbeb; padding: 18px 20px; display: grid; gap: 14px; margin-top: 18px; }
+.dynamic-review-authority-card textarea { width: 100%; box-sizing: border-box; border: 1px solid #fcd34d; border-radius: 8px; padding: 10px 12px; font-family: inherit; font-size: 13px; color: #334155; resize: vertical; min-height: 96px; }
+.dynamic-review-authority-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; }
+.dynamic-review-authority-totals div { background: #fff; border: 1px solid #fcd34d; border-radius: 10px; padding: 8px 12px; }
+.dynamic-review-authority-totals span { display: block; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #b45309; margin-bottom: 2px; }
+.dynamic-review-authority-totals b { font-size: 16px; font-weight: 800; color: #92400e; }
+.dynamic-review-authority-total-cell { background: #fef3c7 !important; border-color: #d97706 !important; }
+.dynamic-review-authority-label { font-size: 12.5px; font-weight: 800; color: #92400e; }
+.dynamic-review-authority-label span { color: #dc2626; }
+.dynamic-review-authority-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: flex-end; }
+.dynamic-review-authority-draft-status { color: #92400e; font-size: 12px; margin-right: auto; }
+.dynamic-review-authority-actions button { border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 750; font-family: inherit; cursor: pointer; transition: filter 150ms ease; }
+.dynamic-review-authority-actions button:not(:disabled):hover { filter: brightness(0.97); }
+.dynamic-review-btn-draft { background: #fff; color: #92400e; border: 1.5px solid #d97706; }
+.dynamic-review-btn-submit { background: #d97706; color: #fff; border: none; box-shadow: 0 8px 18px rgba(217,119,6,0.25); }
+.dynamic-review-btn-submit:disabled { background: #d1d5db; color: #6b7280; box-shadow: none; cursor: not-allowed; }
+.dynamic-review-btn-reject { background: #fff; color: #dc2626; border: 1.5px solid #fecaca; }
+.dynamic-review-confirm-row { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: #92400e; line-height: 1.5; }
+
+@media (max-width: 700px) {
+  .dynamic-review-header { flex-wrap: wrap; padding: 16px; }
+  .dynamic-review-heading h2 { font-size: 20px; }
+  .dynamic-review-back { margin-left: auto; }
+  .dynamic-review-nav-summary { margin-left: 0; }
+  .dynamic-review-authority-actions { justify-content: stretch; }
+  .dynamic-review-authority-actions button { flex: 1; }
+}

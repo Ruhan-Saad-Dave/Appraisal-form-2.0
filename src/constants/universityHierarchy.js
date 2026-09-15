@@ -1,160 +1,72 @@
 export const DEAN_TRACKS = {
   ENGINEERING: "engineering",
   NON_ENGINEERING: "non_engineering",
-  DIRECT_VC: "direct_vc",
+  CISR: "cisr",
 };
 
-export const SOEMR_DEPARTMENTS = [
-  "Mechanical Engineering",
-  "Civil Engineering",
-  "Chemical Engineering",
-  "Semiconductor Engineering",
-];
+// The 4 recognized approval_chain step keys. "dean" resolves to the track's Dean role (one Dean
+// of Engineering, one Dean of Non-Engineering - never per-school) everywhere it's consumed.
+const APPROVAL_CHAIN_STEPS = new Set(["hod", "director", "dean", "vc"]);
 
-export const UNIVERSITY_SCHOOLS = [
-  {
-    code: "SoCSEA",
-    name: "School of Computer Science, Engineering & Applications",
-    label: "SoCSEA - School of Computer Science, Engineering & Applications",
-    deanTrack: DEAN_TRACKS.ENGINEERING,
-    hodDepartments: [],
-    aliases: [
-      "socsea",
-      "computer science",
-      "school of computer science",
-      "school of computer science engineering applications",
-      "school of computer science, engineering and applications",
-      "school of computer science & engineering",
-      "computer science & engineering",
-      "computer science and engineering",
-      "cse",
-      "cs",
-    ],
-  },
-  {
-    code: "SoBB",
-    name: "School of Bio-Engineering & Bio Science",
-    label: "SoBB - School of Bio-Engineering & Bio Science",
-    deanTrack: DEAN_TRACKS.ENGINEERING,
-    hodDepartments: [],
-    aliases: [
-      "sobb",
-      "bio-engineering",
-      "bio engineering",
-      "bio science",
-      "bioscience",
-      "biotechnology",
-      "school of bio engineering and bio science",
-      "school of bio engineering & bio science",
-    ],
-  },
-  {
-    code: "SoCE",
-    name: "School of Continual Education",
-    label: "SoCE - School of Continual Education",
-    deanTrack: DEAN_TRACKS.ENGINEERING,
-    hodDepartments: [],
-    aliases: ["soce", "continual education", "continual", "school of continual education"],
-  },
-  {
-    code: "SoEMR",
-    name: "School of Engineering Management & Research",
-    label: "SoEMR - School of Engineering Management & Research",
-    deanTrack: DEAN_TRACKS.ENGINEERING,
-    hodDepartments: SOEMR_DEPARTMENTS,
-    aliases: [
-      "soemr",
-      "engineering management",
-      "engineering management research",
-      "school of engineering management & research",
-      "school of engineering management and research",
-      "engineering",
-    ],
-  },
-  {
-    code: "SoCM",
-    name: "School of Commerce & Management",
-    label: "SoCM - School of Commerce & Management",
-    deanTrack: DEAN_TRACKS.NON_ENGINEERING,
-    hodDepartments: [],
-    aliases: [
-      "socm",
-      "soc",
-      "commerce",
-      "commerce management",
-      "management",
-      "school of commerce & management",
-      "school of commerce and management",
-      "school of commerce",
-      "business",
-    ],
-  },
-  {
-    code: "SoMCS",
-    name: "School of Media & Communication Studies",
-    label: "SoMCS - School of Media & Communication Studies",
-    deanTrack: DEAN_TRACKS.NON_ENGINEERING,
-    hodDepartments: [],
-    aliases: [
-      "somcs",
-      "media",
-      "communication studies",
-      "media & communication",
-      "media and communication",
-      "school of media & communication studies",
-      "school of media and communication studies",
-    ],
-  },
-  {
-    code: "SoHSS",
-    name: "School of Humanities and Social Sciences",
-    label: "SoHSS - School of Humanities and Social Sciences",
-    deanTrack: DEAN_TRACKS.NON_ENGINEERING,
-    hodDepartments: [],
-    aliases: [
-      "sohss",
-      "hss",
-      "humanities",
-      "social sciences",
-      "humanities and social sciences",
-      "humanities & social sciences",
-      "school of humanities and social sciences",
-      "school of humanities & social sciences",
-    ],
-  },
-  {
-    code: "SoD",
-    name: "School of Design",
-    label: "SoD - School of Design",
-    deanTrack: DEAN_TRACKS.NON_ENGINEERING,
-    hodDepartments: [],
-    aliases: ["sod", "ciod", "school of design", "design"],
-  },
-  {
-    code: "SoAA",
-    name: "School of Applied Arts",
-    label: "SoAA - School of Applied Arts",
-    deanTrack: DEAN_TRACKS.NON_ENGINEERING,
-    hodDepartments: [],
-    aliases: ["soaa", "applied arts", "school of applied arts", "arts"],
-  },
-  {
-    code: "CISR",
-    name: "Center for Interdisciplinary Studies and Research",
-    label: "CISR - Center for Interdisciplinary Studies and Research",
-    deanTrack: DEAN_TRACKS.DIRECT_VC,
-    hodDepartments: [],
-    aliases: [
-      "cisr",
-      "center for interdisciplinary studies and research",
-      "centre for interdisciplinary studies and research",
-      "center for interdisciplinary studies & research",
-      "centre for interdisciplinary studies & research",
-      "interdisciplinary studies and research",
-      "interdisciplinary studies",
-    ],
-  },
-];
+const normalizeBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0) return false;
+  const normalized = String(value).trim().toLowerCase();
+  if (["true", "1", "yes", "y"].includes(normalized)) return true;
+  if (["false", "0", "no", "n"].includes(normalized)) return false;
+  return fallback;
+};
+
+// Builds the ordered approval_chain for a school entry: prefer an explicit chain (from a live
+// fetch), else derive one from the has_hod/has_director flags. This derivation happens ONCE at
+// data-normalization time, not at routing time - getReviewChain must always read the resulting
+// `approvalChain` array as-is, never reconstruct it from the booleans itself.
+const withApprovalChain = (school) => {
+  if (!school.track) return school; // CISR (and anything track-less): leave untouched.
+  const normalizedSchool = {
+    ...school,
+    hasHod: normalizeBoolean(school.hasHod ?? school.has_hod, false),
+    hasDirector: normalizeBoolean(school.hasDirector ?? school.has_director, true),
+  };
+  if (Array.isArray(school.approvalChain) && school.approvalChain.length) {
+    return { ...normalizedSchool, approvalChain: school.approvalChain.filter((step) => APPROVAL_CHAIN_STEPS.has(step)) };
+  }
+  const approvalChain = [
+    ...(normalizedSchool.hasHod ? ["hod"] : []),
+    ...(normalizedSchool.hasDirector ? ["director"] : []),
+    "dean",
+    "vc",
+  ];
+  return { ...normalizedSchool, approvalChain };
+};
+
+// School definitions are loaded from GET /schools. There is deliberately no built-in fallback
+// school registry here; if the endpoint is unavailable the lists remain empty.
+export let UNIVERSITY_SCHOOLS = [];
+
+const schoolsChangeSubscribers = new Set();
+export const onUniversitySchoolsChanged = (callback) => {
+  schoolsChangeSubscribers.add(callback);
+  return () => schoolsChangeSubscribers.delete(callback);
+};
+
+const recomputeDerivedSchoolExports = () => {
+  SCHOOL_OPTIONS = UNIVERSITY_SCHOOLS.map((school) => ({ value: school.code, label: school.label }));
+};
+
+// Called by schoolsService after a successful GET /schools. The live endpoint is the authority
+// for all schools/centers; missing rows are not filled from frontend fallback data.
+export const replaceUniversitySchools = (rows = []) => {
+  const liveRows = (Array.isArray(rows) ? rows : []).filter((row) => row?.code);
+  if (!liveRows.length) return false;
+  UNIVERSITY_SCHOOLS = liveRows.map(withApprovalChain);
+  recomputeDerivedSchoolExports();
+  schoolsChangeSubscribers.forEach((callback) => {
+    try { callback(UNIVERSITY_SCHOOLS); } catch { /* a subscriber's own error must not break others */ }
+  });
+  return true;
+};
 
 export const getSchoolsByDeanTrack = (deanTrack) =>
   UNIVERSITY_SCHOOLS.filter((school) => school.deanTrack === deanTrack);
@@ -165,12 +77,10 @@ export const getSchoolCodesByDeanTrack = (deanTrack) =>
 export const getSchoolLabelsByDeanTrack = (deanTrack) =>
   getSchoolsByDeanTrack(deanTrack).map((school) => school.label);
 
-export const SCHOOL_OPTIONS = UNIVERSITY_SCHOOLS.map((school) => ({
+export let SCHOOL_OPTIONS = UNIVERSITY_SCHOOLS.map((school) => ({
   value: school.code,
   label: school.label,
 }));
-
-export const SOEMR_SCHOOL = UNIVERSITY_SCHOOLS.find((school) => school.code === "SoEMR");
 
 export const normalizeHierarchyText = (value) =>
   String(value || "")
@@ -231,17 +141,55 @@ export const canonicalSchoolValue = (school) => getSchoolByValue(school)?.code |
 export const isValidSchool = (school) =>
   SCHOOL_OPTIONS.some((option) => option.value === school);
 
-export const isSoemrSchool = (school) => getSchoolKey(school) === "SoEMR";
+const SCHOOL_VISUAL_PALETTE = [
+  { color: "#6366f1", bg: "#eef2ff" },
+  { color: "#10b981", bg: "#ecfdf5" },
+  { color: "#0ea5e9", bg: "#eff6ff" },
+  { color: "#f59e0b", bg: "#fffbeb" },
+  { color: "#14b8a6", bg: "#ecfeff" },
+  { color: "#8b5cf6", bg: "#f3e8ff" },
+  { color: "#ec4899", bg: "#fdf2f8" },
+  { color: "#f97316", bg: "#fff7ed" },
+  { color: "#0f766e", bg: "#ccfbf1" },
+];
+
+const schoolInitials = (school = {}) => {
+  const code = String(school.code || "").replace(/^So/i, "").replace(/[^a-z0-9]/gi, "");
+  if (code) return code.slice(0, 2).toUpperCase();
+  return String(school.name || school.label || "School")
+    .replace(/^School of\s+/i, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "SC";
+};
+
+export const schoolVisualMeta = (schoolValue, index = 0) => {
+  const school = typeof schoolValue === "object" ? schoolValue : getSchoolByValue(schoolValue);
+  const paletteIndex = Math.abs(Number(school?.order ?? index) || 0) % SCHOOL_VISUAL_PALETTE.length;
+  const palette = SCHOOL_VISUAL_PALETTE[paletteIndex];
+  return {
+    icon: schoolInitials(school),
+    color: school?.color || school?.themeColor || palette.color,
+    bg: school?.bg || school?.themeBg || palette.bg,
+  };
+};
 
 export const isCisrSchool = (school) => getSchoolKey(school) === "CISR";
+
+export const schoolUnitLabel = (school) => {
+  const config = typeof school === "object" ? school : getSchoolByValue(school);
+  const value = config?.unitLabel || config?.unit_label || config?.departmentLabel || config?.department_label || config?.programLabel || config?.program_label;
+  return String(value || "Program").trim() || "Program";
+};
+
+export const isDepartmentUnitSchool = (school) =>
+  schoolUnitLabel(school).toLowerCase() === "department";
 
 // Department names are now a Director-managed list per school (see departmentsService.js),
 // not a fixed enum — validity is enforced at signup time against that list, so this is just
 // a display/storage normalizer, not a lookup.
 export const canonicalDepartmentValue = (department) => String(department || "").trim();
-
-// Retained only as backend migration seed data for SoEMR's pre-existing departments
-// (see backend_changes_requied.md) - no longer used by routing logic.
-export const isValidSoemrDepartment = (department) =>
-  SOEMR_DEPARTMENTS.includes(department);
 

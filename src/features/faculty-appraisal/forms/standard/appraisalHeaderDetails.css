@@ -1,0 +1,15 @@
+.appraisal-page-header .appraisal-header-title { color: #0f172a !important; font-weight: 800 !important; letter-spacing: -.025em !important; }
+.appraisal-header-person-icon { border-radius: 6px !important; background: linear-gradient(145deg, #fff, #eef2ff) !important; color: #4f46e5 !important; border-color: #c7d2fe !important; box-shadow: 0 1px 3px rgb(15 23 42 / 4%); flex-shrink: 0; }
+.appraisal-header-year-label { display: inline-flex; align-items: center; gap: 6px; color: #64748b; }
+.appraisal-header-year-label svg { color: #6366f1; flex-shrink: 0; }
+.appraisal-page-header .appraisal-year-select { border-radius: 6px !important; background: #fafbff !important; border-color: #cbd5e1 !important; color: #1e293b !important; cursor: pointer; }
+.appraisal-page-header .appraisal-year-select:hover { background: #eef2ff !important; border-color: #a5b4fc !important; }
+.appraisal-page-header .appraisal-year-select:focus-visible { outline: 2px solid #6366f1 !important; outline-offset: 2px; }
+.appraisal-lock-notice { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; color: #475569; font-size: 12px; font-weight: 500; line-height: 1.6; }
+.appraisal-lock-notice__icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; height: 32px; border: 1px solid #c7d2fe; border-radius: 6px; background: #eef2ff; color: #4f46e5; }
+.appraisal-lock-notice--closed { background: #fffdf7; border-color: #fde68a; color: #92400e; }
+.appraisal-lock-notice--closed .appraisal-lock-notice__icon { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+.appraisal-lock-notice--rejected { background: #fffafa; border-color: #fecaca; color: #991b1b; }
+.appraisal-lock-notice--rejected .appraisal-lock-notice__icon { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+.standard-appraisal-lock-notice.appraisal-lock-notice--submitted { background: #fef2f2; border: none; color: #991b1b; font-weight: 600; }
+.standard-appraisal-lock-notice.appraisal-lock-notice--submitted .appraisal-lock-notice__icon { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }

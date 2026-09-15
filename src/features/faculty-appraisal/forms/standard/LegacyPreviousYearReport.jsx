@@ -38,6 +38,15 @@ const LEGACY_SCORE_KEYS = new Set([
 
 const LEGACY_META_KEYS = new Set(["label", "max", "sectionMax", "section_max"]);
 
+const legacyScoreCard = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  padding: "13px 14px",
+  background: "linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)",
+  boxShadow: "0 10px 22px rgba(15,23,42,0.04)",
+  minWidth: 0,
+};
+
 const legacyRowHasMeaningfulData = (row = {}) => {
   const entries = Object.entries(row || {});
   const hasScore = entries.some(([key, value]) =>
@@ -230,26 +239,26 @@ export default function LegacyPreviousYearReport({
           ["Part B Faculty", `${displayedFacultyPartB.toFixed(1)} / ${facultyPartBMax}`],
           ["Grand Faculty", `${grandFaculty.toFixed(1)} / ${facultyGrandMax}`],
         ].map(([label, value]) => (
-          <div key={label} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "11px 13px", background: "#f8fafc" }}>
+          <div key={label} style={legacyScoreCard}>
             <div style={{ color: "#64748b", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
-            <div style={{ marginTop: 4, color: "#111827", fontSize: 15, fontWeight: 900 }}>{value}</div>
+            <div style={{ marginTop: 6, color: "#111827", fontSize: 18, fontWeight: 900, lineHeight: 1 }}>{value}</div>
           </div>
         ))}
       </div>
       {reviewerRows.length > 0 && (
         <div style={{ marginTop: 16 }}>
           <div style={{ color: "#64748b", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 }}>Higher Authority Scores</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
             {reviewerRows.map((row) => (
-              <div key={row.key} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "11px 13px", background: "#f8fafc", display: "flex", flexDirection: "column", gap: 4 }}>
+              <div key={row.key} style={{ ...legacyScoreCard, display: "flex", flexDirection: "column", gap: 5 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ color: "#334155", fontSize: 12.5, fontWeight: 900 }}>{row.label}</span>
+                  <span style={{ color: "#64748b", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.4 }}>{row.label}</span>
                   <span style={{ color: "#111827", fontSize: 14, fontWeight: 900 }}>
                     {row.total !== null && row.total !== undefined ? `${n(row.total).toFixed(1)} / ${facultyGrandMax}` : "Score not recorded"}
                   </span>
                 </div>
                 {String(row.remarks || "").trim() !== "" && (
-                  <div style={{ color: "#64748b", fontSize: 12, lineHeight: 1.5 }}>{row.remarks}</div>
+                  <div style={{ color: "#475569", fontSize: 12, lineHeight: 1.55 }}>{row.remarks}</div>
                 )}
               </div>
             ))}

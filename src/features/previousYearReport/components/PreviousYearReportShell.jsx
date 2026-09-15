@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Archive, LockKeyhole } from "lucide-react";
+import "./previousYearReport.css";
 import PreviousYearReportActions from "./PreviousYearReportActions";
 import PreviousYearScoreSummary from "./PreviousYearScoreSummary";
 import PreviousYearSectionTable from "./PreviousYearSectionTable";
@@ -22,13 +24,20 @@ export default function PreviousYearReportShell({ report, title, reviews = [], s
   }
 
   return (
-    <SC title={`${title} - ${report.academicYear}`} accent="#4c1d95">
+    <section className="previous-report" aria-label={`${title} - ${report.academicYear}`}>
+      <header className="previous-report__header">
+        <span className="previous-report__icon"><Archive size={22} aria-hidden="true" /></span>
+        <div><span className="previous-report__eyebrow">Previous academic year</span><h2>{title}</h2><p>View the recorded appraisal, supporting documents, and review summary.</p></div>
+        <div className="previous-report__badges"><span>AY {report.academicYear}</span><span><LockKeyhole size={12} aria-hidden="true" />Read-only</span></div>
+      </header>
+      <div className="previous-report__content">
       {showTables ? (
         <PreviousYearTableView report={report} reviews={reviews} visibleLevels={visibleLevels} />
       ) : (
         <PreviousYearReportActions report={report} title={title} reviews={reviews} />
       )}
-    </SC>
+      </div>
+    </section>
   );
 }
 
@@ -231,7 +240,7 @@ function AuthorityRemarks({ reviews = [], levels }) {
 
 function LegacyPageNav({ pages, activePage, onChange }) {
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+    <nav className="previous-report__nav" aria-label="Previous-year report sections">
       {pages.map((page) => {
         const active = page.key === activePage;
         return (
@@ -239,23 +248,14 @@ function LegacyPageNav({ pages, activePage, onChange }) {
             key={page.key}
             type="button"
             onClick={() => onChange(page.key)}
-            style={{
-              border: active ? "1px solid #4c1d95" : "1px solid #dbe3ef",
-              background: active ? "#4c1d95" : "#fff",
-              color: active ? "#fff" : "#475569",
-              borderRadius: 7,
-              padding: "8px 14px",
-              fontFamily: "inherit",
-              fontSize: 12,
-              fontWeight: 900,
-              cursor: "pointer",
-            }}
+            className={active ? "is-active" : undefined}
+            aria-current={active ? "page" : undefined}
           >
             {page.label}
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
@@ -318,32 +318,25 @@ function PreviousYearFacultyInfo({ report }) {
   const infoRows = [
     ["Academic Year", report.academicYear],
     ["Name", profile.name || profile.full_name || profile.fullName],
-    ["Qual", profile.qual || profile.qualification],
-    ["Desig", profile.desig || profile.designation || profile.present_designation],
+    ["Qualification", profile.qual || profile.qualification],
+    ["Designation", profile.desig || profile.designation || profile.present_designation],
     ["School", profile.school || profile.school_name || profile.department],
     ["Experience", profile.exp || profile.experience || profile.teaching_experience],
     ["Email", profile.email || profile.faculty_email],
   ].filter(([, value]) => String(value ?? "").trim() !== "");
 
   return (
-    <div style={{ border: "1px solid #dbe3ef", borderRadius: 8, background: "#fff", overflow: "hidden" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-        <tbody>
-          {infoRows.map(([label, value]) => (
-            <tr key={label}>
-              <td style={{ width: "32%", border: "1px solid #e5e7eb", background: "#f8fafc", padding: "9px 12px", color: "#172033", fontSize: 13, fontWeight: 900 }}>{label}</td>
-              <td style={{ border: "1px solid #e5e7eb", padding: "9px 12px", color: "#334155", fontSize: 13, fontWeight: 650, overflowWrap: "anywhere" }}>{value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <dl className="previous-report__profile" aria-label="Faculty details">
+      {infoRows.map(([label, value]) => (
+        <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+      ))}
+    </dl>
   );
 }
 
 function PartBand({ title, tone = "#dbeafe" }) {
   return (
-    <div style={{ background: tone, color: "#172033", borderRadius: 6, padding: "9px 12px", fontSize: 13, fontWeight: 900 }}>
+    <div className="previous-report__part-heading" style={{ "--part-tone": tone }}>
       {title}
     </div>
   );

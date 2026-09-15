@@ -31,7 +31,7 @@ export default function PreviousYearSectionTable({ section, levels = ["faculty"]
         <table style={T}>
           <thead>
             <tr>
-              <th style={{ ...TH, width: 34 }}>SN</th>
+              <th style={{ ...TH, width: 30 }}>SN</th>
               {columns.map(([label]) => <th key={label} style={TH}>{label}</th>)}
               <th style={TH}>View Docs</th>
               {scoreLevels.map((level) => <th key={level} style={TH}>{SCORE_LABELS[level] || `${level} Score`}</th>)}

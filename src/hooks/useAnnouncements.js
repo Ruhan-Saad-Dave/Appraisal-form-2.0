@@ -44,15 +44,27 @@ export function useAnnouncements() {
 
   useEffect(() => {
     let cancelled = false;
-    listAnnouncements()
+    const refresh = () => listAnnouncements()
       .then((items) => {
-        if (!cancelled) setAll(items.filter(matchesCurrentUser));
+        if (!cancelled) {
+          setAll(items.filter(matchesCurrentUser));
+          setError(false);
+        }
       })
       .catch(() => {
         if (!cancelled) setError(true);
       });
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    refresh();
+    const timer = window.setInterval(refresh, 30000);
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 

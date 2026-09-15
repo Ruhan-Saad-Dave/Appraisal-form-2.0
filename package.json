@@ -8,12 +8,14 @@
     "build": "vite build .",
     "lint": "eslint .",
     "preview": "vite preview",
-    "verify:hierarchy": "node scripts/verifyHierarchy.mjs"
+    "verify:hierarchy": "node scripts/verifyHierarchy.mjs",
+    "check:integrity": "node scripts/checkAppraisalIntegrity.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
     "axios": "^1.15.2",
     "jszip": "^3.10.1",
+    "lucide-react": "^1.43.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.18.2"

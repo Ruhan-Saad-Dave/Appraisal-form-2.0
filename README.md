@@ -37,7 +37,9 @@ frontend-FacultyAppraisal/
 |   |-- auth/                # Protected routes and session handling
 |   |-- components/          # Shared UI components
 |   |-- constants/           # Form config, hierarchy, routing rules
-|   |-- data/                # Mock/sample data helpers
+|   |-- context/             # Shared React context providers
+|   |-- features/            # Appraisal form variants and dynamic-appraisal features
+|   |-- hooks/                # Shared React hooks
 |   |-- pages/               # Role dashboards and auth/profile pages
 |   |-- services/            # API, persistence, and workflow services
 |   `-- utils/               # Scoring, reports, validation, hierarchy helpers
@@ -138,6 +140,14 @@ Verify hierarchy configuration:
 npm run verify:hierarchy
 ```
 
+Check appraisal data integrity:
+
+```bash
+npm run check:integrity
+```
+
+The `scripts/` folder also has several targeted one-off verification scripts (draft-save confirmation, standard-form read compatibility, course-file dropdown integrity, A8 qualification integrity, creative-form reload, etc.) that aren't wired into `package.json` — run them directly with `node scripts/<name>.mjs` when working on the area they cover.
+
 ## Deployment
 
 ### Netlify
@@ -182,7 +192,7 @@ docker run -p 8080:8080 faculty-appraisal-frontend
 ## Configuration Notes
 
 - App-level constants such as default academic year and portal name are defined in `src/constants/formConfig.js`.
-- University schools, dean tracks, department routing, and aliases are defined in `src/constants/universityHierarchy.js`.
+- University schools, dean tracks, department routing, and aliases are shaped by `src/constants/universityHierarchy.js`, but the actual school/department list is not hardcoded there — it's fetched live from the backend and is admin/Director-configurable, so treat that file as the schema/helpers, not the source of truth for what schools currently exist.
 - Form-type routing is defined in `src/constants/formRouting.js`.
 - API communication is centralized through `src/services/api.js`.
 - Full appraisal report generation is handled in `src/utils/fullFormReport.js`.
@@ -195,6 +205,7 @@ Before opening a pull request or deploying, run:
 npm run build
 npm run lint
 npm run verify:hierarchy
+npm run check:integrity
 ```
 
 ## Repository Notes

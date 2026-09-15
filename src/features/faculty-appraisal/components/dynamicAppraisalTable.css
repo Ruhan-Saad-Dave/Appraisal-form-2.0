@@ -1,0 +1,186 @@
+/* Dynamic (admin-built custom schema) appraisal tables — faculty fill-in view and
+   the review-side read-only/recovery views. Scoped entirely to .dynamic-appraisal-table
+   and .dynamic-table-guidelines, so none of this touches Standard/Creative School
+   forms, which use their own separate table markup. */
+
+.dynamic-appraisal-table {
+  border-color: #b6c2d4 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px rgba(15, 23, 42, 0.03);
+}
+
+/* Header: a soft gradient + uppercase/letter-spacing instead of a flat block,
+   matching the same "designed" header treatment used elsewhere in the dynamic
+   review module. */
+.dynamic-appraisal-table > thead > tr > th {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f4f9 100%) !important;
+  color: #1e1b4b !important;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+  font-size: 11.5px !important;
+}
+
+.dynamic-appraisal-table > thead > tr > th,
+.dynamic-appraisal-table > tbody > tr > td,
+.dynamic-appraisal-table > tfoot > tr > td {
+  border-right-color: #cbd5e1 !important;
+  border-bottom-color: #cbd5e1 !important;
+  transition: background 150ms ease;
+}
+
+.dynamic-appraisal-table > thead > tr > th:last-child,
+.dynamic-appraisal-table > tbody > tr > td:last-child,
+.dynamic-appraisal-table > tfoot > tr > td:last-child {
+  border-right: 0 !important;
+}
+
+.dynamic-appraisal-table > tbody:last-of-type > tr:last-child > td,
+.dynamic-appraisal-table > tfoot > tr:last-child > td {
+  border-bottom: 0 !important;
+}
+
+/* Row spacing + zebra striping (excluding the "Total Score" row, which keeps its
+   own distinct background from the rule below) so a multi-row table reads easily
+   at a glance instead of running rows together. */
+.dynamic-appraisal-table > tbody > tr:not(:last-child):nth-child(even) > td {
+  background: #fbfcfe;
+}
+
+.dynamic-appraisal-table td,
+.dynamic-appraisal-table th {
+  padding: 11px 13px !important;
+}
+
+.dynamic-appraisal-table > tbody > tr > td:first-child {
+  color: #64748b;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* Inputs/selects inside dynamic tables were barely distinguishable from the plain
+   white cell background — give them a faint tint + clearer border, and a visible
+   focus ring, without touching the shared TI input component used by every form.
+   Scoped to :not(:disabled):not([readonly]) so a submitted-and-locked form's
+   inputs still visibly read as locked (plain gray, matching TI's own readOnly
+   style) instead of looking identical to an editable one. */
+.dynamic-appraisal-table input:not(:disabled):not([readonly]),
+.dynamic-appraisal-table textarea:not(:disabled):not([readonly]),
+.dynamic-appraisal-table select:not(:disabled):not([readonly]) {
+  border-color: #c7d2fe !important;
+  background-color: #fbfbff !important;
+  text-align: center !important;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.dynamic-appraisal-table input:disabled,
+.dynamic-appraisal-table input[readonly],
+.dynamic-appraisal-table textarea:disabled,
+.dynamic-appraisal-table textarea[readonly],
+.dynamic-appraisal-table select:disabled,
+.dynamic-appraisal-table select[readonly] {
+  text-align: center !important;
+  cursor: not-allowed;
+}
+
+.dynamic-appraisal-table select:disabled,
+.dynamic-appraisal-table select[readonly] {
+  background-color: #f1f5f9 !important;
+  color: #94a3b8 !important;
+  opacity: 1;
+}
+
+.dynamic-appraisal-table input:not(:disabled):not([readonly]):hover,
+.dynamic-appraisal-table textarea:not(:disabled):not([readonly]):hover,
+.dynamic-appraisal-table select:not(:disabled):not([readonly]):hover {
+  border-color: #a5b4fc !important;
+}
+
+.dynamic-appraisal-table select:not(:disabled):not([readonly]):hover {
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.08) !important;
+}
+
+.dynamic-appraisal-table input:focus,
+.dynamic-appraisal-table textarea:focus,
+.dynamic-appraisal-table select:focus {
+  border-color: #6366f1 !important;
+  background-color: #fff !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.14) !important;
+  outline: none !important;
+}
+
+/* Custom dropdown-arrow select (SchemaFieldCell "dropdown"/"conditionalText"
+   fields) needs its text left-aligned to clear the arrow, unlike every other
+   centered select/input in this table. */
+.dynamic-appraisal-table select:not(:disabled):not([readonly]),
+.dynamic-appraisal-table select:disabled,
+.dynamic-appraisal-table select[readonly] {
+  text-align: left !important;
+  text-align-last: left !important;
+}
+
+/* "Total Score" footer row. Driven off the .dynamic-total-value marker class on
+   the value cell — present in every render path (EditableTableField,
+   SubmittedTable, DynamicRowHeaderTable) — rather than row position, so every
+   layout gets one single cohesive background instead of the label cell and the
+   value cell ending up in two different, clashing tones. Kept deliberately flat
+   and simple (no gradients, no pill shapes on table cells) after those looked
+   broken in practice. */
+.dynamic-appraisal-table tr:has(.dynamic-total-value) > td {
+  background: #eef2ff !important;
+  color: #3730a3 !important;
+  border-color: #c7d2fe !important;
+}
+
+.dynamic-appraisal-table td.dynamic-total-value {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  color: #3730a3 !important;
+}
+
+@media (max-width: 640px) {
+  .dynamic-appraisal-table td,
+  .dynamic-appraisal-table th {
+    padding: 8px 9px !important;
+    font-size: 12px;
+  }
+}
+
+/* Guideline popover contents */
+.dynamic-table-guidelines {
+  padding: 18px 20px !important;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  letter-spacing: normal;
+}
+
+.dynamic-table-guidelines > div:first-child {
+  margin-bottom: 14px !important;
+  padding-bottom: 10px !important;
+}
+
+.dynamic-table-guidelines > div:nth-child(2) {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.65;
+}
+
+.dynamic-table-guidelines ul {
+  padding-left: 18px !important;
+  gap: 9px !important;
+  list-style-position: outside;
+}
+
+.dynamic-table-guidelines li {
+  padding-left: 4px;
+  margin: 0;
+  text-align: left;
+  white-space: pre-line;
+  transition: color 150ms ease;
+}
+
+.dynamic-table-guidelines li::marker {
+  color: #6366f1;
+  font-size: 0.85em;
+}

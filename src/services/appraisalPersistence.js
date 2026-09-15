@@ -1,4 +1,6 @@
 import { api } from "./api";
+import { isDynamicAppraisalForm, submittedDynamicForm, readDynamicAppraisalResponse } from '../utils/dynamicAppraisalData';
+import { saveDynamicAppraisalDraft, submitDynamicAppraisal } from './dynamicAppraisalPersistence';
 import { storeUserSession } from "../auth/session";
 import { getDeanTrack, getReviewChain, normalizeRoleForWorkflow, pendingStatusFor } from "../utils/hierarchy";
 import { DEAN_TRACKS } from "../constants/universityHierarchy";
@@ -317,7 +319,7 @@ const defaultAcrRows = () =>[
  { label: "Obedience" },
 ];
 
-const resetSnapshotSetters = (academicYear, setters) =>{
+export const resetSnapshotSetters = (academicYear, setters) =>{
  setters.setInfo?.({
   name: sessionStorage.getItem("name") || "",
   qual: sessionStorage.getItem("qualification") || "",
@@ -393,8 +395,9 @@ export const loadAppraisalSnapshot = async ({ facultyEmail, academicYear }) =>{
  params: { academic_year: academicYear },
  });
  return data?.payload ?? data ?? null;
- } catch {
- return null;
+ } catch (err) {
+ if ((err?.statusCode || err?.response?.status || err?.status) === 404) return null;
+ throw err;
  }
 };
 
@@ -410,6 +413,8 @@ export const saveAppraisalDraftSection = async ({
   const email = facultyEmail || (typeof window !== "undefined" ? sessionStorage.getItem("username") || sessionStorage.getItem("email") || localStorage.getItem("username") || localStorage.getItem("email") : "");
   if (!email) throw new Error("Please login again before saving. Your email was not found in this session.");
   if (!academicYear) throw new Error("Academic year is required before saving.");
+
+ if (isDynamicAppraisalForm(form)) return saveDynamicAppraisalDraft({ facultyEmail: email, academicYear, form, docs, totals, submitterProfile, sectionSaveStatus });
 
  return api.put("/appraisal/snapshot", {
  academic_year: academicYear,
@@ -569,6 +574,7 @@ const readSubmittedAppraisalResponse = async (data, facultyEmail, academicYear) 
  if (!data) {
  throw new Error(`No saved appraisal snapshot was found for ${facultyEmail} in academic year ${academicYear}. Check that the academic year matches the submitted record.`);
  }
+ if (isDynamicAppraisalForm(submittedDynamicForm(data))) return readDynamicAppraisalResponse(data);
  const snapshotPayload = isCurrentSessionUser(facultyEmail)
  ? await loadAppraisalSnapshot({ facultyEmail, academicYear })
  : null;
@@ -1850,6 +1856,8 @@ export const submitAppraisal = async ({
 }) =>{
  if (!facultyEmail) throw new Error("Please login again. Your email was not found in this session.");
  if (!academicYear) throw new Error("Academic year is required before submitting.");
+
+ if (isDynamicAppraisalForm(form)) return submitDynamicAppraisal({ facultyEmail, academicYear, form, totals, docs, submitterProfile, activeProfile });
 
  const workflowProfile = submitterProfile || activeProfile || {};
  const reviewChain = getReviewChain(workflowProfile);
