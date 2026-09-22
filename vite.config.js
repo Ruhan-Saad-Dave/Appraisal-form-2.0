@@ -4,6 +4,19 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   base: './',
   plugins: [react()],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
+  optimizeDeps: {
+    // Prebundle the shared runtime and lazy-route dependencies together so
+    // opening a dashboard does not discover a second runtime mid-session.
+    include: [
+      'react', 'react-dom', 'react-dom/client',
+      'react/jsx-runtime', 'react/jsx-dev-runtime',
+      'react-router-dom', 'lucide-react', 'axios', 'jszip',
+    ],
+    holdUntilCrawlEnd: true,
+  },
   build: {
     target: 'es2020',
     minify: 'oxc',

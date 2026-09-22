@@ -4,7 +4,6 @@ import { getActiveAcademicYear } from "../auth/session";
 import { APP_INFO } from "../constants/formConfig";
 import {
   canAuthorityReviewProfile,
-  departmentHasHod,
   getSchoolKey,
   getReviewChain,
   isRejectedStatus,
@@ -45,7 +44,10 @@ const enrichmentCache = new Map();
 const withEnrichmentCache = async (kind, email, academicYear, fetcher) => {
   const key = `${kind}::${academicYear}::${email}`;
   const cached = enrichmentCache.get(key);
-  if (cached && Date.now() - cached.time < ENRICHMENT_CACHE_TTL_MS) {
+  // Registrar Part D edits must reach the VC quickly; keep full appraisal records
+  // short-lived while retaining the longer document cache for dashboard performance.
+  const cacheTtl = kind === "submitted" ? 3000 : ENRICHMENT_CACHE_TTL_MS;
+  if (cached && Date.now() - cached.time < cacheTtl) {
     return cached.value;
   }
   const value = await fetcher();
@@ -250,7 +252,11 @@ const enrichQueueItemDocs = async (item = {}) => {
   const missingCurrentPartCOrDScore = !isLegacyYear &&
     (n(item.partATotal) > 0 || n(item.partBTotal) > 0) &&
     (n(item.partCTotal) === 0 || n(item.partDTotal) === 0);
-  const missingReviewerScore = missingLegacyScore || missingCurrentHodScore || missingCurrentPartCOrDScore;
+  // The VC needs the Registrar's actual Part D rows as well as the release status.
+  // Queue summaries often omit those rows, so recover the full record when needed.
+  const missingCurrentPartDDetails = !isLegacyYear && item.partDStatus === "released" &&
+    !Array.isArray(item.leaveManagement) && !Array.isArray(item.leave_management);
+  const missingReviewerScore = missingLegacyScore || missingCurrentHodScore || missingCurrentPartCOrDScore || missingCurrentPartDDetails;
   if (currentDocCount > 0 && !missingReviewerScore) {
     return item;
   }
@@ -320,6 +326,20 @@ const enrichQueueItemDocs = async (item = {}) => {
     // reader against the full submitted record recovers it the same way legacyTotals does for
     // the old format.
     const currentReviewSummary = legacyTotals ? null : standardReviewSummary(submitted, submitted?.payload, submitted?.form);
+    const submittedPartDSources = [
+      submitted,
+      submitted?.declaration,
+      submitted?.payload,
+      submitted?.payload?.declaration,
+      submitted?.form,
+      submitted?.payload?.form,
+    ].filter(Boolean);
+    const submittedPartDValue = (...keys) => firstValue(...keys.flatMap((key) => submittedPartDSources.map((source) => source?.[key])));
+    const submittedPartDLeave = submittedPartDSources.find((source) =>
+      Array.isArray(source?.registrar_part_d_leave_management) ||
+      Array.isArray(source?.registrarPartDLeaveManagement) ||
+      Array.isArray(source?.leaveManagement) || Array.isArray(source?.leave_management)
+    );
     const recoveredReviewerFields = legacyTotals
       ? {
           hodTotal: numberValue(legacyTotals.hodTotal, enrichedItem.hodTotal),
@@ -390,6 +410,13 @@ const enrichQueueItemDocs = async (item = {}) => {
       facultyPartCMax: submittedSummary.partCMax,
       facultyPartDMax: submittedSummary.partDMax,
       facultyTotalMax: submittedSummary.grandMax,
+      partDStatus: enrichedItem.partDStatus || submittedPartDValue("part_d_status", "partDStatus"),
+      registrarPartDScore: numberValue(enrichedItem.registrarPartDScore, submittedPartDValue("registrar_part_d_score", "registrarPartDScore")),
+      registrarPartDRemarks: enrichedItem.registrarPartDRemarks || submittedPartDValue("registrar_part_d_remarks", "registrarPartDRemarks"),
+      registrarPartDReviewedAt: enrichedItem.registrarPartDReviewedAt || submittedPartDValue("registrar_part_d_reviewed_at", "registrarPartDReviewedAt"),
+      leaveManagement: enrichedItem.leaveManagement?.length
+        ? enrichedItem.leaveManagement
+        : submittedPartDLeave?.registrar_part_d_leave_management || submittedPartDLeave?.registrarPartDLeaveManagement || submittedPartDLeave?.leaveManagement || submittedPartDLeave?.leave_management || [],
     };
     if (submittedCount > 0 && submittedCount !== currentCount) {
       return { ...nextItem, docs: bestSubmittedDocs, docCount: submittedCount };
@@ -453,6 +480,15 @@ const getNested = (item, key) =>
   firstValue(
     item?.[key],
     item?.profile?.[key],
+    item?.facultyProfile?.[key],
+    item?.faculty_profile?.[key],
+    item?.submitterProfile?.[key],
+    item?.submitter_profile?.[key],
+    item?.payload?.profile?.[key],
+    item?.payload?.facultyProfile?.[key],
+    item?.payload?.faculty_profile?.[key],
+    item?.payload?.submitterProfile?.[key],
+    item?.payload?.submitter_profile?.[key],
     item?.payload?.info?.[key],
     item?.form?.info?.[key],
     item?.info?.[key],
@@ -465,6 +501,24 @@ const subjectProfileFromItem = (item = {}) => {
     item.role,
     item.profile?.appraisal_role,
     item.profile?.role,
+    item.facultyProfile?.appraisal_role,
+    item.facultyProfile?.role,
+    item.faculty_profile?.appraisal_role,
+    item.faculty_profile?.role,
+    item.submitterProfile?.appraisal_role,
+    item.submitterProfile?.role,
+    item.submitter_profile?.appraisal_role,
+    item.submitter_profile?.role,
+    item.payload?.profile?.appraisal_role,
+    item.payload?.profile?.role,
+    item.payload?.facultyProfile?.appraisal_role,
+    item.payload?.facultyProfile?.role,
+    item.payload?.faculty_profile?.appraisal_role,
+    item.payload?.faculty_profile?.role,
+    item.payload?.submitterProfile?.appraisal_role,
+    item.payload?.submitterProfile?.role,
+    item.payload?.submitter_profile?.appraisal_role,
+    item.payload?.submitter_profile?.role,
     item.payload?.submittedByRole,
     item.form?.submittedByRole,
     item.info?.appraisalRole,
@@ -474,8 +528,8 @@ const subjectProfileFromItem = (item = {}) => {
 
   return {
     ...item,
-    email: firstValue(item.email, item.faculty_email, item.facultyEmail, item.username),
-    full_name: firstValue(item.name, item.full_name, item.fullName, item.profile?.full_name),
+    email: firstValue(item.email, item.faculty_email, item.facultyEmail, item.username, getNested(item, "email"), getNested(item, "faculty_email"), getNested(item, "username")),
+    full_name: firstValue(item.name, item.full_name, item.fullName, item.profile?.full_name, getNested(item, "full_name"), getNested(item, "fullName"), getNested(item, "name")),
     profile_picture_url: profileImageFrom(item),
     profilePictureUrl: profileImageFrom(item),
     appraisal_role: role,
@@ -679,6 +733,13 @@ const statusStageIndex = (item = {}, chain = []) => {
     return rejectedIndex >= 0 ? rejectedIndex : -1;
   }
   if (status === "submitted" || status === "pending review") return 0;
+  if (
+    !chain.includes("director") &&
+    chain.includes("dean") &&
+    (status === normalizeStatusText(pendingStatusFor("director")) || status.includes("pending director"))
+  ) {
+    return chain.indexOf("dean");
+  }
   if (status === "reviewed" || status === "completed") {
     const scoreStages = chain
       .map((role, index) => hasReviewScore(item, role) ? index + 1 : -1)
@@ -755,6 +816,20 @@ const normalizeQueueItem = (item = {}) => {
   const email = subjectProfile.email;
   const academicYear = firstValue(item.academicYear, item.academic_year, item.info?.ay, getActiveAcademicYear(), APP_INFO.DEFAULT_AY, "2026-2027");
   const school = subjectProfile.school;
+  const partDSources = [
+    item,
+    item.declaration,
+    item.payload,
+    item.payload?.declaration,
+    item.form,
+    item.payload?.form,
+  ].filter(Boolean);
+  const partDValue = (...keys) => firstValue(...keys.flatMap((key) => partDSources.map((source) => source?.[key])));
+  const partDLeaveManagement = partDSources.find((source) =>
+    Array.isArray(source?.registrar_part_d_leave_management) ||
+    Array.isArray(source?.registrarPartDLeaveManagement) ||
+    Array.isArray(source?.leaveManagement) || Array.isArray(source?.leave_management)
+  );
   // The 2025-2026 cycle used a legacy two-part form (Part A + Part B only) whose scores are
   // stored under score_summary.{role} rather than the standard partA/partB/partC/partD +
   // hodTotal/directorTotal/... fields read above - without this, review-queue cards for that
@@ -882,10 +957,10 @@ const normalizeQueueItem = (item = {}) => {
     vcRemarks: firstValue(reviewSummary.vcRemarks),
     // Part D routes to the Registrar independently of the A/B/C/E chain above - see
     // partDReleaseGateApplies in utils/hierarchy.js and backend_changes_requied.md.
-    partDStatus: firstValue(item.part_d_status, item.partDStatus),
-    registrarPartDScore: numberValue(firstValue(item.registrar_part_d_score, item.registrarPartDScore, item.registrar_part_d, item.registrarPartD, reviewSummary.registrarPartDScore, reviewSummary.registrarPartD)),
-    registrarPartDRemarks: firstValue(item.registrar_part_d_remarks, item.registrarPartDRemarks, item.registrar_remarks, item.registrarRemarks, reviewSummary.registrarPartDRemarks, reviewSummary.registrarRemarks),
-    registrarPartDReviewedAt: firstValue(item.registrar_part_d_reviewed_at, item.registrarPartDReviewedAt),
+    partDStatus: partDValue("part_d_status", "partDStatus") || firstValue(item.part_d_status, item.partDStatus),
+    registrarPartDScore: numberValue(partDValue("registrar_part_d_score", "registrarPartDScore") || firstValue(item.registrar_part_d_score, item.registrarPartDScore, item.registrar_part_d, item.registrarPartD, reviewSummary.registrarPartDScore, reviewSummary.registrarPartD)),
+    registrarPartDRemarks: firstValue(partDValue("registrar_part_d_remarks", "registrarPartDRemarks"), item.registrar_part_d_remarks, item.registrarPartDRemarks, item.registrar_remarks, item.registrarRemarks, reviewSummary.registrarPartDRemarks, reviewSummary.registrarRemarks),
+    registrarPartDReviewedAt: firstValue(partDValue("registrar_part_d_reviewed_at", "registrarPartDReviewedAt"), item.registrar_part_d_reviewed_at, item.registrarPartDReviewedAt),
     hasRegistrarPartDScore: Boolean(
       item.has_registrar_part_d_score ||
       item.hasRegistrarPartDScore ||
@@ -893,8 +968,9 @@ const normalizeQueueItem = (item = {}) => {
       item.registrarPartDReviewedAt ||
       firstValue(item.registrar_part_d_score, item.registrarPartDScore, item.registrar_part_d, item.registrarPartD, reviewSummary.registrarPartDScore, reviewSummary.registrarPartD) !== ""
     ),
-    registrarPartDLeaveManagement: item.registrar_part_d_leave_management || item.registrarPartDLeaveManagement || reviewSummary.registrarPartDLeaveManagement,
-    leaveManagement: item.registrar_part_d_leave_management || item.registrarPartDLeaveManagement || reviewSummary.registrarPartDLeaveManagement || item.leaveManagement || item.leave_management || (item.payload?.form?.leaveManagement) || [],
+    registrarPartDLeaveManagement: partDLeaveManagement?.registrar_part_d_leave_management || partDLeaveManagement?.registrarPartDLeaveManagement || item.registrar_part_d_leave_management || item.registrarPartDLeaveManagement || reviewSummary.registrarPartDLeaveManagement,
+    // Registrar corrections are stored outside the faculty's immutable submission.
+    leaveManagement: partDLeaveManagement?.registrar_part_d_leave_management || partDLeaveManagement?.registrarPartDLeaveManagement || partDLeaveManagement?.leaveManagement || partDLeaveManagement?.leave_management || item.registrar_part_d_leave_management || item.registrarPartDLeaveManagement || reviewSummary.registrarPartDLeaveManagement || item.leaveManagement || item.leave_management || (item.payload?.form?.leaveManagement) || [],
   };
 };
 
@@ -923,18 +999,38 @@ export const fetchReviewQueueForRole = async ({
     const params = {
       academic_year: academicYear || getActiveAcademicYear() || APP_INFO.DEFAULT_AY || "2026-2027",
       reviewer_role: role,
-      pending_status: pendingStatusFor(role),
     };
+    // Director/Dean queues can be reached through dynamic chains where a previous authority is
+    // skipped. If an older backend status still says "Pending HOD/Director Review", an exact
+    // pending_status filter would hide the row before the frontend can apply getReviewChain().
+    if (!["director", "dean"].includes(role)) params.pending_status = pendingStatusFor(role);
     if (schoolValues?.length) params.schools = schoolValues.join(",");
-    if (reviewerProfile?.school) params.reviewer_school = reviewerProfile.school;
-    // HOD can be assigned multiple departments/programs at once (see New_backend.md), so a single
-    // reviewer_department would wrongly narrow the server-side query to just their first one -
-    // fetch school-wide instead and let isReviewableForRole's array-aware check (below) filter.
-    if (role !== "hod" && reviewerProfile?.department) params.reviewer_department = reviewerProfile.department;
+    // Dean is a division-level reviewer. Sending one `reviewer_school` from the session can make
+    // a dynamic backend narrow the queue to a single school instead of the whole Dean track.
+    const hasMultiSchoolDirectorScope = role === "director" && schoolValues?.length > 1;
+    if (role !== "dean" && reviewerProfile?.school && !hasMultiSchoolDirectorScope) params.reviewer_school = reviewerProfile.school;
+    // HOD can be assigned multiple departments/programs at once, and Dean is a division-level
+    // reviewer, so a single reviewer_department would wrongly narrow both queues. Directors are
+    // the only teaching authority here where a department value may still be a useful backend hint.
+    if (role === "director" && reviewerProfile?.department) params.reviewer_department = reviewerProfile.department;
 
     const items = await api.get("/dashboard/subordinates", { params });
+    const skippedDirectorItems = role === "dean"
+      ? await api.get("/dashboard/subordinates", {
+          params: {
+            ...params,
+            reviewer_role: "director",
+            pending_status: pendingStatusFor("director"),
+          },
+        }).catch(() => [])
+      : [];
     const normalizedItems = (items || [])
+      .concat(skippedDirectorItems || [])
       .map(normalizeQueueItem)
+      .filter((item, index, list) => {
+        const key = `${item.email || item.id}:${item.academicYear || ""}`;
+        return list.findIndex((other) => `${other.email || other.id}:${other.academicYear || ""}` === key) === index;
+      })
       .filter((item) => isReviewableForRole(item, role, reviewerProfile));
 
     // lazy: don't enrich anything up front - the caller enriches one card at a time via
@@ -969,11 +1065,12 @@ export const enrichQueueItem = (item) => enrichQueueItemDocs(item);
 // originator (Faculty/HOD/Director/Dean/Center Head, any school) - independent of the
 // A/B/C/E chain, which never routes Part D to HOD/Director/Dean. See
 // partDReleaseGateApplies / PART_D_STATUSES in utils/hierarchy.js and backend_changes_requied.md.
-export const fetchPartDRegistrarQueue = async ({ academicYear } = {}) => {
+export const fetchPartDRegistrarQueue = async ({ academicYear, includeReviewed = false } = {}) => {
   try {
     const params = {
       academic_year: academicYear || getActiveAcademicYear() || APP_INFO.DEFAULT_AY || "2026-2027",
       part_d_status: PART_D_STATUSES.PENDING_REGISTRAR,
+      ...(includeReviewed ? { include_reviewed: true } : {}),
     };
     const items = await api.get("/dashboard/part-d-queue", { params });
     const normalizedItems = (items || []).map(normalizeQueueItem);
@@ -1162,7 +1259,9 @@ const workflowHierarchyHintsFor = (role, subjectProfile = {}) => {
   const previousReviewer = reviewerIndex > 0 ? chain[reviewerIndex - 1] : "";
   const firstReviewer = chain[0] || "";
   const schoolKey = getSchoolKey(subjectProfile.school);
-  const hasHod = departmentHasHod(subjectProfile.school, subjectProfile.department);
+  const hasHod = chain.includes("hod");
+  const hasDirector = chain.includes("director");
+  const isDirectDeanReview = role === "dean" && !previousReviewer;
 
   return {
     review_chain: chain,
@@ -1196,16 +1295,32 @@ const workflowHierarchyHintsFor = (role, subjectProfile = {}) => {
     subjectSchoolCode: schoolKey,
     has_hod: hasHod,
     hasHod,
+    has_director: hasDirector,
+    hasDirector,
     hod_required: hasHod,
     hodRequired: hasHod,
+    director_required: hasDirector,
+    directorRequired: hasDirector,
     requires_hod: hasHod,
     requiresHod: hasHod,
+    requires_director: hasDirector,
+    requiresDirector: hasDirector,
     skip_hod: !hasHod,
     skipHod: !hasHod,
     skip_hod_review: !hasHod,
     skipHodReview: !hasHod,
+    skip_director: !hasDirector,
+    skipDirector: !hasDirector,
+    skip_director_review: !hasDirector,
+    skipDirectorReview: !hasDirector,
     no_hod: !hasHod,
     noHod: !hasHod,
+    no_director: !hasDirector,
+    noDirector: !hasDirector,
+    direct_to_dean: isDirectDeanReview,
+    directToDean: isDirectDeanReview,
+    allow_missing_director_review: !hasDirector && role === "dean",
+    allowMissingDirectorReview: !hasDirector && role === "dean",
     direct_to_director: !hasHod && role === "director",
     directToDirector: !hasHod && role === "director",
     allow_missing_hod_review: !hasHod && role === "director",
@@ -1219,12 +1334,20 @@ const workflowHierarchyHintsFor = (role, subjectProfile = {}) => {
       department: subjectProfile.department,
       has_hod: hasHod,
       hasHod,
+      has_director: hasDirector,
+      hasDirector,
       hod_required: hasHod,
       hodRequired: hasHod,
+      director_required: hasDirector,
+      directorRequired: hasDirector,
       skip_hod: !hasHod,
       skipHod: !hasHod,
+      skip_director: !hasDirector,
+      skipDirector: !hasDirector,
       no_hod: !hasHod,
       noHod: !hasHod,
+      no_director: !hasDirector,
+      noDirector: !hasDirector,
       review_chain: chain,
       reviewChain: chain,
     },
@@ -1260,15 +1383,17 @@ export const submitWorkflowReview = async ({
     throw new Error(`Unknown reviewer role: ${role}`);
   }
 
-  const basePayload = {
-    academic_year: academicYear,
-    remarks,
+  const scorePayload = {
     part_a_score: n(partAScore),
     part_b_score: n(partBScore),
     part_c_score: n(partCScore),
     part_d_score: n(partDScore),
     total_score: n(totalScore),
     section_scores: sectionScores || {},
+  };
+  const basePayload = {
+    academic_year: academicYear,
+    remarks,
   };
   const endpointUrl = `/appraisal-remarks/${endpoint}/${encodeURIComponent(subjectEmail)}`;
   const rejected = decision === "rejected";
@@ -1282,6 +1407,14 @@ export const submitWorkflowReview = async ({
       ...roleHints,
       ...forwarding,
       ...hierarchyHints,
+      preserve_existing_scores: true,
+      preserveExistingScores: true,
+      preserve_existing_section_scores: true,
+      preserveExistingSectionScores: true,
+      update_scores: false,
+      updateScores: false,
+      update_section_scores: false,
+      updateSectionScores: false,
       rejected_by: role,
       rejectedBy: role,
       rejection_reason: remarks,
@@ -1290,16 +1423,16 @@ export const submitWorkflowReview = async ({
   }
 
   if (role === "vc") {
-    return await api.put(endpointUrl, basePayload) || {};
+    return await api.put(endpointUrl, { ...basePayload, ...scorePayload }) || {};
   }
 
   let result;
   try {
-    result = await api.put(endpointUrl, { ...basePayload, ...forwarding, ...hierarchyHints });
+    result = await api.put(endpointUrl, { ...basePayload, ...scorePayload, ...forwarding, ...hierarchyHints });
   } catch (err) {
     if (rejected) throw err;
     if (![400, 422].includes(err?.response?.status)) throw err;
-    result = await api.put(endpointUrl, { ...basePayload, ...hierarchyHints });
+    result = await api.put(endpointUrl, { ...basePayload, ...scorePayload, ...hierarchyHints });
   }
 
   return result || {};

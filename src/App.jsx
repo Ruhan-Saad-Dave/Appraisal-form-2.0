@@ -5,6 +5,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { getActiveAcademicYear, normalizeRole, setActiveAcademicYear, storeUserSession } from "./auth/session";
 import { APP_INFO } from "./constants/formConfig";
 import { getMe } from "./services/authService";
+import { refreshSchoolsOnce } from "./services/schoolsService";
 import { api } from "./services/api";
 import { refreshAcademicYearCycles } from "./services/academicYearCycles";
 
@@ -84,6 +85,10 @@ function ProfileLoader() {
     const load = async () => {
       try {
         const profile = await getMe();
+        if (cancelled) return;
+        // Load live schools (incl. admin-created ones) before canonicalising this user's school,
+        // so a dynamic-school user's `school` / review-queue scope resolves correctly on refresh.
+        await refreshSchoolsOnce().catch(() => {});
         if (cancelled) return;
         storeUserSession({ profile });
 

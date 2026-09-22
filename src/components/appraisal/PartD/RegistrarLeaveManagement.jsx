@@ -1,4 +1,5 @@
-import { EmptySectionRow, isSectionEmpty, SectionCard as SC, T, TH, TD, TDC } from "../../../features/faculty-appraisal";
+import { EmptySectionRow, isSectionEmpty, T, TH, TD, TDC } from "../../../features/faculty-appraisal";
+import "./RegistrarLeaveManagement.css";
 
 const PART_D_MAX = 25;
 
@@ -6,64 +7,49 @@ const PART_D_MAX = 25;
 // place Part D is ever scored - it never routes to HOD/Director/Dean for scoring, only for
 // read-only visibility (see LeaveManagementReadOnly.jsx).
 export default function RegistrarLeaveManagement({
-  ctx,
+  ctx = {},
   score,
   remarks,
   onScoreChange,
   onRemarksChange,
-  onLeaveManagementChange,
   disabled,
+  editing = false,
+  onRowsChange,
+  onLeaveManagementChange,
 }) {
-  const rows = Array.isArray(ctx.leaveManagement) && ctx.leaveManagement.length
-    ? ctx.leaveManagement
-    : [{}];
+  const notifyRows = onRowsChange || onLeaveManagementChange;
+  const isEditing = Boolean(editing || onLeaveManagementChange);
+  const rawRows = Array.isArray(ctx?.leaveManagement) ? ctx.leaveManagement : [];
+  const rows = rawRows.length ? rawRows : isEditing ? [{}] : [];
   const sectionEmpty = isSectionEmpty("leaveManagement", rows);
 
-  const handleCellChange = (index, field, value) => {
-    if (!onLeaveManagementChange) return;
-    const updated = rows.map((r, i) => (i === index ? { ...r, [field]: value } : r));
-    onLeaveManagementChange(updated);
-  };
-
-  const isEditable = !disabled && Boolean(onLeaveManagementChange);
-
-  const inputStyle = {
-    width: "100%",
-    boxSizing: "border-box",
-    textAlign: "center",
-    border: "1px solid #cbd5e1",
-    borderRadius: 6,
-    padding: "5px 6px",
-    fontSize: 12,
-    fontFamily: "inherit",
-    fontWeight: 700,
-    background: "#fff",
-    color: "#0f172a",
-    outline: "none",
-  };
-
-  const textInputStyle = {
-    ...inputStyle,
-    textAlign: "left",
-  };
+  const field = (row, index, key, label) => isEditing ? (
+    <input
+      aria-label={`${label}, row ${index + 1}`}
+      type={key === "managementRating" ? "text" : "number"}
+      min={0}
+      value={row[key] ?? ""}
+      disabled={disabled}
+      onChange={(event) => {
+        const val = event.target.value;
+        notifyRows?.(rows.map((item, position) => position === index ? { ...item, [key]: val } : item));
+      }}
+      style={{ width: "100%", minWidth: 0, boxSizing: "border-box", padding: 8, border: "1px solid #dbe3ef", borderRadius: 6, font: "inherit" }}
+    />
+  ) : (row[key] ?? "-");
 
   return (
-    <div className="review-part-stack">
-      <div className="review-part-stack__title">PART D - Leave &amp; Attendance Management</div>
-      <SC title={`Part D - Leave & Attendance Management (Max ${PART_D_MAX})`} accent="#0891b2">
-        <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>
-          {isEditable
-            ? "Registrar editable view: You can adjust faculty leave and attendance data, score, and remarks below."
-            : "Faculty-submitted data - view only. Score and remarks below are entered by the Registrar."}
-        </div>
-        {sectionEmpty && !isEditable ? (
+    <section className="registrar-part-d">
+      <h3>Part D - Leave &amp; Attendance Management</h3>
+      <div>
+        {sectionEmpty && !isEditing ? (
           <table style={{ ...T, minWidth: 0, tableLayout: "fixed" }}>
             <tbody>
               <EmptySectionRow colSpan={5} />
             </tbody>
           </table>
         ) : rows.map((r = {}, i) => (
-          <div key={i} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div key={i} className="registrar-part-d__tables">
             <table style={{ ...T, minWidth: 0, tableLayout: "fixed" }}>
               <colgroup>
                 <col style={{ width: "32%" }} /><col style={{ width: "17%" }} /><col style={{ width: "17%" }} /><col style={{ width: "17%" }} /><col style={{ width: "17%" }} />
@@ -78,105 +64,17 @@ export default function RegistrarLeaveManagement({
               <tbody>
                 <tr>
                   <td style={TD} />
-                  <td style={TDC}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={inputStyle}
-                        value={r.clTaken ?? ""}
-                        onChange={(e) => handleCellChange(i, "clTaken", e.target.value)}
-                      />
-                    ) : (
-                      r.clTaken || "-"
-                    )}
-                  </td>
-                  <td style={TDC}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={inputStyle}
-                        value={r.mlTaken ?? ""}
-                        onChange={(e) => handleCellChange(i, "mlTaken", e.target.value)}
-                      />
-                    ) : (
-                      r.mlTaken || "-"
-                    )}
-                  </td>
-                  <td style={TDC}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={inputStyle}
-                        value={r.odTaken ?? ""}
-                        onChange={(e) => handleCellChange(i, "odTaken", e.target.value)}
-                      />
-                    ) : (
-                      r.odTaken || "-"
-                    )}
-                  </td>
-                  <td style={TDC}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={inputStyle}
-                        value={r.coffTaken ?? ""}
-                        onChange={(e) => handleCellChange(i, "coffTaken", e.target.value)}
-                      />
-                    ) : (
-                      r.coffTaken || "-"
-                    )}
-                  </td>
+                  <td style={TDC}>{field(r, i, "clTaken", "CL taken")}</td>
+                  <td style={TDC}>{field(r, i, "mlTaken", "ML taken")}</td>
+                  <td style={TDC}>{field(r, i, "odTaken", "OD taken")}</td>
+                  <td style={TDC}>{field(r, i, "coffTaken", "C/Off taken")}</td>
                 </tr>
                 <tr style={{ background: "#f8fafc" }}>
                   <td style={{ ...TD, fontWeight: 700 }}>Out of</td>
-                  <td style={TDC}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={inputStyle}
-                        value={r.clOutOf ?? ""}
-                        onChange={(e) => handleCellChange(i, "clOutOf", e.target.value)}
-                      />
-                    ) : (
-                      r.clOutOf || "-"
-                    )}
-                  </td>
-                  <td style={TDC}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={inputStyle}
-                        value={r.mlOutOf ?? ""}
-                        onChange={(e) => handleCellChange(i, "mlOutOf", e.target.value)}
-                      />
-                    ) : (
-                      r.mlOutOf || "-"
-                    )}
-                  </td>
-                  <td style={TDC}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={inputStyle}
-                        value={r.odOutOf ?? ""}
-                        onChange={(e) => handleCellChange(i, "odOutOf", e.target.value)}
-                      />
-                    ) : (
-                      r.odOutOf || "-"
-                    )}
-                  </td>
-                  <td style={TDC}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={inputStyle}
-                        value={r.coffOutOf ?? ""}
-                        onChange={(e) => handleCellChange(i, "coffOutOf", e.target.value)}
-                      />
-                    ) : (
-                      r.coffOutOf || "-"
-                    )}
-                  </td>
+                  <td style={TDC}>{field(r, i, "clOutOf", "CL allowance")}</td>
+                  <td style={TDC}>{field(r, i, "mlOutOf", "ML allowance")}</td>
+                  <td style={TDC}>{field(r, i, "odOutOf", "OD allowance")}</td>
+                  <td style={TDC}>{field(r, i, "coffOutOf", "C/Off allowance")}</td>
                 </tr>
               </tbody>
             </table>
@@ -187,48 +85,15 @@ export default function RegistrarLeaveManagement({
               <tbody>
                 <tr>
                   <td style={{ ...TD, fontWeight: 700 }}>2. No. of Late Remarks in the Year</td>
-                  <td style={TD}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={textInputStyle}
-                        value={r.lateRemarks ?? ""}
-                        onChange={(e) => handleCellChange(i, "lateRemarks", e.target.value)}
-                      />
-                    ) : (
-                      r.lateRemarks || "-"
-                    )}
-                  </td>
+                  <td style={TD}>{field(r, i, "lateRemarks", "Late remarks")}</td>
                 </tr>
                 <tr style={{ background: "#f8fafc" }}>
                   <td style={{ ...TD, fontWeight: 700 }}>3. Total Actual Working Days</td>
-                  <td style={TD}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={textInputStyle}
-                        value={r.workingDays ?? ""}
-                        onChange={(e) => handleCellChange(i, "workingDays", e.target.value)}
-                      />
-                    ) : (
-                      r.workingDays || "-"
-                    )}
-                  </td>
+                  <td style={TD}>{field(r, i, "workingDays", "Working days")}</td>
                 </tr>
                 <tr>
                   <td style={{ ...TD, fontWeight: 700 }}>4. Management of leaves</td>
-                  <td style={TD}>
-                    {isEditable ? (
-                      <input
-                        type="text"
-                        style={textInputStyle}
-                        value={r.managementRating ?? ""}
-                        onChange={(e) => handleCellChange(i, "managementRating", e.target.value)}
-                      />
-                    ) : (
-                      r.managementRating || "-"
-                    )}
-                  </td>
+                  <td style={TD}>{field(r, i, "managementRating", "Management of leaves")}</td>
                 </tr>
                 <tr style={{ background: "#f8fafc" }}>
                   <td style={{ ...TD, fontWeight: 700 }}>Faculty self-declared score (out of {PART_D_MAX})</td>
@@ -239,10 +104,10 @@ export default function RegistrarLeaveManagement({
           </div>
         ))}
 
-        <div style={{ display: "grid", gap: 12, marginTop: 16, paddingTop: 16, borderTop: "1px solid #e2e8f0" }}>
+        <div className="registrar-part-d__assessment">
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.4px" }}>
-              Registrar Score (out of {PART_D_MAX}) *
+              Registrar Score <span style={{ color: "#dc2626" }}>*</span>
             </span>
             <input
               type="number"
@@ -252,8 +117,11 @@ export default function RegistrarLeaveManagement({
               value={score ?? ""}
               disabled={disabled}
               onChange={(e) => onScoreChange?.(e.target.value)}
-              style={{ width: 140, padding: "8px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, fontFamily: "inherit" }}
+              aria-label={`Registrar score out of ${PART_D_MAX}`}
+              placeholder={`0 – ${PART_D_MAX}`}
+              className="registrar-assessment-input"
             />
+            <small className="registrar-assessment-hint">Out of {PART_D_MAX} marks · increments of 0.5</small>
           </label>
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.4px" }}>
@@ -264,11 +132,12 @@ export default function RegistrarLeaveManagement({
               disabled={disabled}
               onChange={(e) => onRemarksChange?.(e.target.value)}
               rows={3}
-              style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, fontFamily: "inherit", resize: "vertical" }}
+              placeholder="Add your observations on leave and attendance…"
+              className="registrar-assessment-input"
             />
           </label>
         </div>
-      </SC>
-    </div>
+      </div>
+    </section>
   );
 }

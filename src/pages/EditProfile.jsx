@@ -1,19 +1,22 @@
 /* eslint-disable no-unused-vars */
 import { cloneElement, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { profilePhotoCrop } from "../utils/profilePhotoCrop";
+import { BadgeCheck, BriefcaseBusiness, GraduationCap, IdCard, Minus, Plus, Move, RotateCcw, Mail, Building2, Camera, UserRound, Trash2, SlidersHorizontal } from "lucide-react";
 import { APP_INFO } from "../constants/formConfig";
 import {
   SCHOOL_OPTIONS,
   canonicalDepartmentValue,
   canonicalSchoolValue,
   isCisrSchool,
-  isSoemrSchool,
   isValidSchool,
+  schoolUnitLabel,
 } from "../constants/universityHierarchy";
 import { isNonTeachingRole } from "../constants/nonTeachingHierarchy";
 import { buildProfilePayload, normalizeRole, storeUserSession } from "../auth/session";
 import { getMe, updateProfile } from "../services/authService";
 import { listSchoolDepartments } from "../services/departmentsService";
+import { useSchools } from "../services/schoolsService";
 import {
   isValidPhone, isValidName, isValidEmployeeId, isValidExperience,
   sanitizeText, filterNumeric, filterPhone,
@@ -21,6 +24,20 @@ import {
 
 // - Pseudo-class styles (hover / focus) injected once on mount -
 const EP_CSS = `
+  .ep-page { box-sizing: border-box; }
+  .ep-page > main { padding: 12px 24px 16px !important; }
+  .ep-hero { box-sizing: border-box; min-height: 200px; padding: 26px 20px !important; margin-bottom: 16px !important; gap: 16px !important; }
+  .ep-profile-cards { gap: 16px !important; }
+  .ep-profile-cards > div { padding: 16px 20px !important; min-width: 0; }
+  .ep-profile-cards > div > div:first-child { margin-bottom: 14px !important; }
+  .ep-profile-cards .ep-grid { gap: 12px 16px !important; }
+  .ep-hero-details { display: grid !important; grid-template-columns: minmax(0, 1fr); gap: 10px !important; }
+  .ep-photo-actions { margin-top: 10px !important; }
+  .ep-avatar-actions { position: absolute; right: -4px; bottom: -5px; flex-wrap: nowrap !important; justify-content: center; gap: 3px !important; margin-top: 0 !important; padding: 3px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 3px 10px rgb(15 23 42 / 12%); }
+  .ep-avatar-actions button { display: inline-flex !important; align-items: center; justify-content: center; width: 32px; height: 32px !important; padding: 0 !important; }
+  .ep-avatar-actions .ep-photo-btn { color: #2563eb !important; background: #eff6ff !important; border-color: #dbeafe !important; }
+  .ep-avatar-actions svg { width: 18px; height: 18px; stroke-width: 1.8; }
+  .ep-avatar-actions button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
   .ep-inp { transition: border-color .15s, box-shadow .15s; }
   .ep-inp:hover:not(:disabled) { border-color: #93c5fd; }
   .ep-inp:focus { outline: none; border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37,99,235,.10) !important; }
@@ -111,29 +128,35 @@ function IconGlyph({ name, size = 18, strokeWidth = 2.2 }) {
 
 function SoftIcon({ name, color = "#2563eb", bg = "#eff6ff", size = 46 }) {
   return (
-    <span style={{ width: size, height: size, borderRadius: size > 42 ? 16 : 12, background: bg, color, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "inset 0 0 0 1px rgba(37,99,235,0.08)" }}>
+    <span style={{ width: size, height: size, borderRadius: 6, background: bg, color, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "inset 0 0 0 1px rgba(37,99,235,0.08)" }}>
       <IconGlyph name={name} size={Math.round(size * 0.45)} />
     </span>
   );
 }
 
+const PROFILE_SUMMARY_ICONS = { id: IdCard, cap: GraduationCap, briefcase: BriefcaseBusiness, shield: BadgeCheck };
+
 function HeroStat({ icon, label, value, color = "#2563eb", bg = "#eef2ff" }) {
+  const SummaryIcon = PROFILE_SUMMARY_ICONS[icon] || IdCard;
   return (
-    <div style={{ minHeight: 72, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7, textAlign: "center", borderLeft: "1px solid #e5e7eb", padding: "0 18px" }}>
-      <SoftIcon name={icon} color={color} bg={bg} size={38} />
-      <div style={{ display: "grid", gap: 3 }}>
+    <div style={{ minWidth: 0, minHeight: 72, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", gap: 10, textAlign: "center", padding: "8px 10px" }}>
+      <span aria-hidden="true" style={{ width: 42, height: 42, boxSizing: "border-box", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, borderRadius: 6, color, background: `linear-gradient(145deg, #ffffff, ${bg})`, border: `1px solid ${color}28`, boxShadow: "0 2px 5px rgba(15,23,42,0.04), inset 0 1px 0 #fff" }}>
+        <SummaryIcon size={23} strokeWidth={1.8} />
+      </span>
+      <div style={{ display: "grid", gap: 5, minWidth: 0, width: "100%" }}>
         <div style={{ fontSize: 10, fontWeight: 900, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</div>
-        <div style={{ color: label === "Account Status" ? "#22c55e" : "#111827", fontSize: 14, fontWeight: 900, whiteSpace: "nowrap" }}>{value || "-"}</div>
+        <div style={{ color: label === "Account Status" ? "#22c55e" : "#111827", fontSize: 14, fontWeight: 900, whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: 1.5 }}>{value || "-"}</div>
       </div>
     </div>
   );
 }
 
 function SectionHead({ title, badge, badgeColor = "#64748b", badgeBack = "#f1f5f9", icon = "user", iconColor = "#2563eb", iconBg = "#eff6ff", actions }) {
+  const SectionIcon = icon === "users" ? IdCard : UserRound;
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 22 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <SoftIcon name={icon} color={iconColor} bg={iconBg} size={44} />
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, flexShrink: 0, borderRadius: 6, color: iconColor, background: `linear-gradient(145deg, #fff, ${iconBg})`, border: `1px solid ${iconColor}25`, boxShadow: "0 2px 5px rgba(15,23,42,0.04)" }}><SectionIcon size={22} strokeWidth={1.8} /></span>
         <span style={{ fontSize: 20, fontWeight: 900, color: "#0f172a", letterSpacing: 0 }}>{title}</span>
       </div>
       {actions || (
@@ -160,7 +183,7 @@ function IconInput({ icon, children }) {
   });
 
   return (
-    <div className="ep-input-shell" style={{ height: 42, display: "flex", alignItems: "center", border: "1.5px solid #dbe3ef", borderRadius: 9, background: "#fff", overflow: "hidden" }}>
+    <div className="ep-input-shell" style={{ height: 42, display: "flex", alignItems: "center", border: "1.5px solid #dbe3ef", borderRadius: 5, background: "#fff", overflow: "hidden" }}>
       <span style={{ width: 42, height: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#64748b", background: "#f8fafc", borderRight: "1px solid #e5e7eb", flexShrink: 0 }}>
         <IconGlyph name={icon} size={17} />
       </span>
@@ -173,7 +196,7 @@ function FrozenField({ label, value, wide }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 5, ...(wide ? { gridColumn: "1 / -1" } : {}) }}>
       <span style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
-      <div style={{ minHeight: 40, display: "flex", alignItems: "center", background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "0 13px", fontSize: 13, color: value ? "#4b5563" : "#c4c9d4" }}>
+      <div style={{ minHeight: 40, display: "flex", alignItems: "center", background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 5, padding: "0 13px", fontSize: 13, color: value ? "#4b5563" : "#c4c9d4" }}>
         {value || "-"}
       </div>
     </div>
@@ -196,16 +219,8 @@ function createAdjustedProfileImage(src, { zoom, x, y }, outputSize = 480) {
       ctx.fillStyle = "#f8fafc";
       ctx.fillRect(0, 0, outputSize, outputSize);
 
-      const baseScale = Math.max(outputSize / image.naturalWidth, outputSize / image.naturalHeight);
-      const scale = baseScale * zoom;
-      const drawWidth = image.naturalWidth * scale;
-      const drawHeight = image.naturalHeight * scale;
-      const offsetX = (x / 100) * (outputSize / 2);
-      const offsetY = (y / 100) * (outputSize / 2);
-      const drawX = (outputSize - drawWidth) / 2 + offsetX;
-      const drawY = (outputSize - drawHeight) / 2 + offsetY;
-
-      ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+      const crop = profilePhotoCrop(image.naturalWidth, image.naturalHeight, { zoom, x, y }, outputSize);
+      ctx.drawImage(image, crop.x, crop.y, crop.width, crop.height);
       resolve(canvas.toDataURL("image/jpeg", 0.92));
     };
     image.onerror = () => reject(new Error("Unable to load the selected image."));
@@ -214,6 +229,35 @@ function createAdjustedProfileImage(src, { zoom, x, y }, outputSize = 480) {
 }
 
 function PhotoAdjustModal({ src, adjust, setAdjust, onCancel, onApply }) {
+  const drag = useRef(null);
+  const [dimensions, setDimensions] = useState(null);
+  const ready = dimensions?.src === src;
+  const crop = profilePhotoCrop(ready ? dimensions.width : 1, ready ? dimensions.height : 1, adjust);
+  const clampPosition = (value) => Math.max(-100, Math.min(100, value));
+  const changeZoom = (delta) => setAdjust((prev) => ({ ...prev, zoom: Math.max(1, Math.min(3, Math.round((prev.zoom + delta) * 100) / 100)) }));
+  const startDrag = (event) => {
+    if (!ready || !event.isPrimary || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.focus();
+    drag.current = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY, x: adjust.x, y: adjust.y, width: event.currentTarget.clientWidth, height: event.currentTarget.clientHeight };
+  };
+  const moveDrag = (event) => {
+    const start = drag.current;
+    if (!start || start.id !== event.pointerId) return;
+    const overflowX = (crop.width - 1) * start.width / 2;
+    const overflowY = (crop.height - 1) * start.height / 2;
+    setAdjust((prev) => ({ ...prev,
+      x: overflowX > 0 ? clampPosition(start.x + (event.clientX - start.clientX) / overflowX * 100) : 0,
+      y: overflowY > 0 ? clampPosition(start.y + (event.clientY - start.clientY) / overflowY * 100) : 0,
+    }));
+  };
+  const moveWithKeyboard = (event) => {
+    const directions = { ArrowLeft: [-5, 0], ArrowRight: [5, 0], ArrowUp: [0, -5], ArrowDown: [0, 5] };
+    const delta = directions[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    setAdjust((prev) => ({ ...prev, x: clampPosition(prev.x + delta[0]), y: clampPosition(prev.y + delta[1]) }));
+  };
   const setValue = (field) => (event) => {
     const value = Number(event.target.value);
     setAdjust((prev) => ({ ...prev, [field]: value }));
@@ -230,55 +274,43 @@ function PhotoAdjustModal({ src, adjust, setAdjust, onCancel, onApply }) {
           <button type="button" onClick={onCancel} style={{ width: 34, height: 34, borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#475569", cursor: "pointer", fontWeight: 900, fontFamily: "inherit" }}>X</button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 22, alignItems: "center" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 22, alignItems: "center", justifyContent: "center" }}>
           <div style={{ display: "grid", justifyItems: "center", gap: 10 }}>
-            <div style={{ width: 170, height: 170, borderRadius: "50%", overflow: "hidden", background: "#e2e8f0", border: "5px solid #fff", boxShadow: "0 12px 32px rgba(15,23,42,0.16), 0 0 0 1px #e2e8f0" }}>
+            <div tabIndex={0} role="group" aria-label="Photo position. Drag to move, or use arrow keys. Zoom in for more movement."
+              onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }} onKeyDown={moveWithKeyboard}
+              style={{ position: "relative", width: 170, height: 170, cursor: "grab", touchAction: "none", userSelect: "none", borderRadius: "50%", overflow: "hidden", background: "#e2e8f0", border: "5px solid #fff", boxShadow: "0 12px 32px rgba(15,23,42,0.16), 0 0 0 1px #e2e8f0" }}>
               <img
                 src={src}
                 alt="Profile preview"
+                draggable={false}
+                onLoad={(event) => setDimensions({ src, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
                 style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
+                  position: "absolute",
+                  width: `${crop.width * 100}%`,
+                  height: `${crop.height * 100}%`,
+                  left: `${crop.x * 100}%`,
+                  top: `${crop.y * 100}%`,
+                  maxWidth: "none",
+                  maxHeight: "none",
+                  visibility: ready ? "visible" : "hidden",
                   display: "block",
-                  transform: `translate(${adjust.x}%, ${adjust.y}%) scale(${adjust.zoom})`,
-                  transformOrigin: "center",
                 }}
               />
             </div>
-            <div style={{ color: "#64748b", fontSize: 11, fontWeight: 700 }}>Circular preview</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#64748b", fontSize: 11, fontWeight: 700 }}><Move size={14} aria-hidden="true" />Drag photo to reposition</div>
           </div>
 
-          <div style={{ display: "grid", gap: 14 }}>
-            {[
-              ["zoom", "Zoom", 0.6, 3, 0.05],
-              ["x", "Move Left / Right", -70, 70, 1],
-              ["y", "Move Up / Down", -70, 70, 1],
-            ].map(([field, label, min, max, step]) => (
-              <label key={field} style={{ display: "grid", gap: 7 }}>
-                <span style={{ display: "flex", justifyContent: "space-between", color: "#334155", fontSize: 12, fontWeight: 800 }}>
-                  {label}
-                  <span style={{ color: "#64748b", fontWeight: 750 }}>{field === "zoom" ? `${Math.round(adjust.zoom * 100)}%` : adjust[field]}</span>
-                </span>
-                <input
-                  type="range"
-                  min={min}
-                  max={max}
-                  step={step}
-                  value={adjust[field]}
-                  onChange={setValue(field)}
-                  style={{ width: "100%", accentColor: "#2563eb" }}
-                />
-              </label>
-            ))}
-
-            <button
-              type="button"
-              onClick={() => setAdjust({ zoom: 1, x: 0, y: 0 })}
-              style={{ justifySelf: "start", border: "1px solid #dbe3ef", background: "#f8fafc", color: "#475569", borderRadius: 9, height: 34, padding: "0 12px", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 800 }}
-            >
-              Reset Position
-            </button>
+          <div style={{ display: "grid", gap: 14, flex: "1 1 200px", minWidth: 0, padding: 16, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#334155", fontSize: 12, fontWeight: 800 }}>
+              <span>Zoom</span><span style={{ color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>{Math.round(adjust.zoom * 100)}%</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button type="button" aria-label="Zoom out" disabled={adjust.zoom <= 1} onClick={() => changeZoom(-0.1)} style={{ width: 32, height: 32, flexShrink: 0, display: "grid", placeItems: "center", border: "1px solid #cbd5e1", borderRadius: 6, background: "#fff", color: "#475569", cursor: "pointer", opacity: adjust.zoom <= 1 ? 0.4 : 1 }}><Minus size={16} /></button>
+              <input aria-label="Photo zoom" type="range" min={1} max={3} step={0.05} value={adjust.zoom} onChange={setValue("zoom")} style={{ width: "100%", minWidth: 0, accentColor: "#2563eb" }} />
+              <button type="button" aria-label="Zoom in" disabled={adjust.zoom >= 3} onClick={() => changeZoom(0.1)} style={{ width: 32, height: 32, flexShrink: 0, display: "grid", placeItems: "center", border: "1px solid #cbd5e1", borderRadius: 6, background: "#fff", color: "#475569", cursor: "pointer", opacity: adjust.zoom >= 3 ? 0.4 : 1 }}><Plus size={16} /></button>
+            </div>
+            <p style={{ margin: 0, color: "#64748b", fontSize: 11, lineHeight: 1.6 }}>Drag inside the circle to position your photo. Zoom in for more room to move. You can also focus the preview and use arrow keys.</p>
+            <button type="button" onClick={() => setAdjust({ zoom: 1, x: 0, y: 0 })} style={{ justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid #cbd5e1", borderRadius: 6, background: "#fff", color: "#475569", padding: "8px 12px", font: "inherit", fontSize: 12, fontWeight: 700, cursor: "pointer" }}><RotateCcw size={14} aria-hidden="true" />Reset</button>
           </div>
         </div>
 
@@ -308,7 +340,7 @@ function InputField({ label, required, hint, wide, children }) {
 const CARD = {
   background: "#fff",
   border: "1px solid #e5e7eb",
-  borderRadius: 16,
+  borderRadius: 8,
   padding: "20px 24px 16px",
   boxShadow: "0 12px 34px rgba(15,23,42,.06)",
 };
@@ -318,7 +350,7 @@ const INP = {
   boxSizing: "border-box",
   height: 40,
   border: "1.5px solid #d1d5db",
-  borderRadius: 8,
+  borderRadius: 5,
   padding: "0 13px",
   fontSize: 13,
   color: "#0f172a",
@@ -328,11 +360,13 @@ const INP = {
 
 // - Main Component -
 export default function EditProfile() {
+  useSchools(); // Re-render when the asynchronously loaded school registry changes.
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const editableCardRef = useRef(null);
   const initialRole = normalizeRole(sessionStorage.getItem("role"), "faculty");
-  const initialSchool = canonicalSchoolValue(sessionStorage.getItem("school"));
+  const storedSchool = sessionStorage.getItem("school") || "";
+  const initialSchool = canonicalSchoolValue(storedSchool) || storedSchool;
   const initialDepartment = isNonTeachingRole(initialRole)
     ? sessionStorage.getItem("department") || ""
     : canonicalDepartmentValue(sessionStorage.getItem("department"));
@@ -370,18 +404,13 @@ export default function EditProfile() {
   const [schoolDepartments, setSchoolDepartments] = useState([]);
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
 
-  const selectedSchool = useMemo(() => canonicalSchoolValue(formData.school), [formData.school]);
+  const selectedSchool = canonicalSchoolValue(formData.school);
   const selectedRole = normalizeRole(formData.role, "");
   const isNonTeaching = formData.staffType === "non_teaching";
   const requiresSchool = !isNonTeaching && selectedRole !== "vc";
   const isCisr = isCisrSchool(selectedSchool);
-  // Every teaching school can have Director-managed departments/programs now, not just SoEMR -
-  // SoEMR is the only one that calls them "departments", everyone else calls them "programs",
-  // but the underlying mechanism (a director-managed list, one HOD assignable per faculty,
-  // multiple assignable per HOD) is the same for all of them. See New_backend.md.
   const schoolHasDepartments = schoolDepartments.length > 0;
-  const isDepartmentSchool = isSoemrSchool(selectedSchool);
-  const unitLabel = isDepartmentSchool ? "Department" : "Program";
+  const unitLabel = schoolUnitLabel(selectedSchool);
   const needsDepartment = !isNonTeaching && !isCisr && schoolHasDepartments;
 
   useEffect(() => {
@@ -413,13 +442,13 @@ export default function EditProfile() {
     getMe()
       .then((freshProfile) => {
         if (!active || !freshProfile) return;
-        storeUserSession({ profile: freshProfile, fallbackEmail: formData.email });
+        const freshSession = storeUserSession({ profile: freshProfile, fallbackEmail: formData.email });
         const freshRole = normalizeRole(freshProfile.appraisal_role || freshProfile.role, initialRole);
         const freshDepartment = isNonTeachingRole(freshRole)
           ? String(freshProfile.department || "")
           : canonicalDepartmentValue(freshProfile.department);
         const freshDepartments = Array.isArray(freshProfile.departments) ? freshProfile.departments : [];
-        setFormData((prev) => ({ ...prev, department: freshDepartment, departments: freshDepartments }));
+        setFormData((prev) => ({ ...prev, school: freshSession.school, department: freshDepartment, departments: freshDepartments }));
       })
       .catch(() => {
         // Keep whatever sessionStorage already had - a failed refresh shouldn't block editing
@@ -572,7 +601,7 @@ export default function EditProfile() {
   const experienceLabel = formData.experience ? `${formData.experience} Years` : "-";
 
   return (
-    <div className="ep-page" style={{ height: "100vh", overflowY: "hidden", background: "#f8fafc", fontFamily: "inherit", color: "#0f172a" }}>
+    <div className="ep-page" style={{ height: "100vh", overflowY: "auto", background: "#f8fafc", fontFamily: "inherit", color: "#0f172a" }}>
       <CssInjector />
 
       {/* - Sticky white navbar - */}
@@ -602,7 +631,7 @@ export default function EditProfile() {
       <main style={{ maxWidth: 1240, margin: "0 auto", padding: "18px 32px 22px" }}>
 
         {/* - Profile hero - */}
-        <div className="ep-hero" style={{ display: "grid", gridTemplateColumns: "minmax(340px, 1fr) minmax(520px, 1.12fr)", alignItems: "center", gap: 22, marginBottom: 16, position: "relative", overflow: "hidden", background: "#fff", borderRadius: 22, border: "1px solid #e5e7eb", padding: "20px 28px", boxShadow: "0 14px 42px rgba(15,23,42,.06)" }}>
+        <div className="ep-hero" style={{ display: "grid", gridTemplateColumns: "minmax(340px, 1fr) minmax(520px, 1.12fr)", alignItems: "center", gap: 22, marginBottom: 16, position: "relative", overflow: "hidden", background: "#fff", borderRadius: 8, border: "1px solid #e5e7eb", padding: "20px 28px", boxShadow: "0 14px 42px rgba(15,23,42,.06)" }}>
           <div style={{ position: "absolute", right: -44, top: -60, width: 210, height: 210, borderRadius: "50%", background: "linear-gradient(135deg,rgba(99,102,241,.08),rgba(124,58,237,.16))" }} />
           <div className="ep-hero-left" style={{ display: "flex", alignItems: "center", gap: 20, minWidth: 0, position: "relative", zIndex: 1 }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
@@ -613,65 +642,68 @@ export default function EditProfile() {
                   initials
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                title="Change profile picture"
-                style={{ position: "absolute", bottom: 5, right: 3, width: 28, height: 28, borderRadius: "50%", background: "#22c55e", border: "3px solid #fff", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 5px 14px rgba(34,197,94,.32)" }}
-              >
-                <IconGlyph name="edit" size={13} />
-              </button>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} />
-            </div>
-            <div style={{ minWidth: 0, paddingRight: 20 }}>
-              <h1 style={{ margin: "0 0 10px", fontSize: 25, fontWeight: 900, color: "#0f172a", lineHeight: 1.08, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {formData.name || "Your Profile"}
-              </h1>
-              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, padding: "4px 12px" }}>
-                  {roleLabel}
-                </span>
-                {formData.school && !isNonTeaching && (
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#15803d", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 20, padding: "4px 12px" }}>
-                    {formData.school}
-                  </span>
-                )}
-                {formData.email && <span style={{ fontSize: 12, color: "#64748b" }}>{formData.email}</span>}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#64748b", fontSize: 13, fontWeight: 700 }}>
-                <SoftIcon name="building" color="#7c3aed" bg="#f3e8ff" size={24} />
-                <span>{schoolLabel}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+              <div className="ep-photo-actions ep-avatar-actions" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 16 }}>
                 <button
                   type="button"
                   className="ep-photo-btn"
+                  title={formData.profilePictureUrl ? "Change photo" : "Upload photo"}
+                  aria-label={formData.profilePictureUrl ? "Change profile photo" : "Upload profile photo"}
                   onClick={() => fileInputRef.current?.click()}
-                  style={{ height: 34, padding: "0 14px", borderRadius: 999, border: "1px solid #dbe3ef", background: "#fff", color: "#475569", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 34, padding: "0 12px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#fff", color: "#334155", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
                 >
-                  {formData.profilePictureUrl ? "Change Photo" : "Upload Photo"}
+                  <Camera size={15} aria-hidden="true" />
+                  
                 </button>
                 {formData.profilePictureUrl && (
                   <button
                     type="button"
+                    aria-label="Remove profile photo"
+                    title="Remove photo"
                     onClick={removePhoto}
-                    style={{ height: 34, padding: "0 12px", borderRadius: 999, border: "1px solid #fecaca", background: "#fff5f5", color: "#b91c1c", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}
+                    style={{ height: 34, padding: "0 12px", borderRadius: 6, border: "1px solid #fecaca", background: "#fff5f5", color: "#b91c1c", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}
                   >
-                    Remove
+                    <Trash2 size={15} aria-hidden="true" />
                   </button>
                 )}
                 {formData.profilePictureUrl?.startsWith("data:image/") && (
                   <button
                     type="button"
+                    aria-label="Adjust profile photo"
+                    title="Adjust photo"
                     onClick={() => {
                       setPhotoAdjust({ zoom: 1, x: 0, y: 0 });
                       setPendingPhotoSrc(formData.profilePictureUrl);
                     }}
-                    style={{ height: 34, padding: "0 12px", borderRadius: 999, border: "1px solid #dbe3ef", background: "#f8fafc", color: "#475569", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}
+                    style={{ height: 34, padding: "0 12px", borderRadius: 6, border: "1px solid #dbe3ef", background: "#f8fafc", color: "#475569", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}
                   >
-                    Adjust
+                    <SlidersHorizontal size={15} aria-hidden="true" />
                   </button>
                 )}
+              </div>
+            </div>
+            <div style={{ minWidth: 0, paddingRight: 20 }}>
+              <h1 style={{ margin: "0 0 10px", fontSize: 25, fontWeight: 900, color: "#0f172a", lineHeight: 1.08, whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                {formData.name || "Your Profile"}
+              </h1>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "#2563eb", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, padding: "5px 9px" }}>
+                  <UserRound size={13} aria-hidden="true" />
+                  {roleLabel}
+                </span>
+                {formData.school && !isNonTeaching && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "#15803d", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, padding: "5px 9px" }}>
+                    <GraduationCap size={14} aria-hidden="true" />
+                    {formData.school}
+                  </span>
+                )}
+              </div>
+              <div className="ep-hero-details" style={{ display: "grid", gap: 9 }}>
+                {formData.email && <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, lineHeight: 1.5, color: "#64748b" }}><Mail size={15} aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }} /><span style={{ overflowWrap: "anywhere", minWidth: 0 }}>{formData.email}</span></div>}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8, color: "#475569", fontSize: 12, lineHeight: 1.5, fontWeight: 600 }}>
+                  <Building2 size={15} aria-hidden="true" style={{ flexShrink: 0, marginTop: 2, color: "#64748b" }} />
+                  <span style={{ overflowWrap: "anywhere", minWidth: 0 }}>{schoolLabel}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -717,7 +749,7 @@ export default function EditProfile() {
                 {needsDepartment && selectedRole === "faculty" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, gridColumn: "1 / -1" }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em" }}>{unitLabel}</span>
-                    <div style={{ minHeight: 40, display: "flex", alignItems: "center", background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "0 13px", fontSize: 13, color: formData.department ? "#374151" : "#c4c9d4", fontWeight: formData.department ? 700 : 400 }}>
+                    <div style={{ minHeight: 40, display: "flex", alignItems: "center", background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 5, padding: "0 13px", fontSize: 13, color: formData.department ? "#374151" : "#c4c9d4", fontWeight: formData.department ? 700 : 400 }}>
                       {formData.department || `Not yet assigned - your Director assigns your ${unitLabel.toLowerCase()} from "Manage ${unitLabel}s".`}
                     </div>
                     <span style={{ fontSize: 10, color: "#9ca3af" }}>Only your Director can change which {unitLabel.toLowerCase()} you're assigned to.</span>
@@ -728,11 +760,11 @@ export default function EditProfile() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, gridColumn: "1 / -1" }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em" }}>{unitLabel}s Assigned</span>
                     {(formData.departments || []).length === 0 ? (
-                      <div style={{ minHeight: 40, display: "flex", alignItems: "center", background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "0 13px", fontSize: 13, color: "#c4c9d4" }}>
+                      <div style={{ minHeight: 40, display: "flex", alignItems: "center", background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 5, padding: "0 13px", fontSize: 13, color: "#c4c9d4" }}>
                         None yet - your Director assigns {unitLabel.toLowerCase()}s from "Manage {unitLabel}s".
                       </div>
                     ) : (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "10px 12px" }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 5, padding: "10px 12px" }}>
                         {formData.departments.map((name) => (
                           <span key={name} style={{ fontSize: 12.5, fontWeight: 700, color: "#4b5563", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 999, padding: "5px 12px" }}>
                             {name}

@@ -1,0 +1,149 @@
+.approval-flow-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+.approval-flow {
+  --flow-line: #475569;
+  display: grid;
+  grid-template-columns: 125px minmax(300px, 1fr) 110px;
+  align-items: center;
+  min-width: 560px;
+  gap: 12px;
+}
+
+.approval-flow__node {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  min-width: 0;
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 7px 8px;
+  overflow-wrap: anywhere;
+  position: relative;
+  z-index: 1;
+}
+
+.approval-flow__node > div:nth-child(2) {
+  justify-content: center;
+}
+
+.approval-flow__branches {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 16px;
+  position: relative;
+}
+
+.approval-flow__branches::before,
+.approval-flow__branches::after {
+  content: "";
+  position: absolute;
+  /* Equal-height lanes with a 10px gap: their centers are 25% - 2.5px
+     from each edge. Offset by half the 2px stroke to align centerlines. */
+  top: calc(25% - 3.5px);
+  bottom: calc(25% - 3.5px);
+  box-sizing: border-box;
+  width: 16px;
+  border-top: 2px solid var(--flow-line);
+  border-bottom: 2px solid var(--flow-line);
+}
+
+.approval-flow__branches::before {
+  left: 0;
+  border-left: 2px solid var(--flow-line);
+}
+
+.approval-flow__branches::after {
+  right: 0;
+  border-right: 2px solid var(--flow-line);
+}
+
+.approval-flow__lane {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  position: relative;
+}
+
+.approval-flow__lane > * {
+  flex: 1;
+}
+
+.approval-flow > .approval-flow__node:first-child::after,
+.approval-flow > .approval-flow__node:last-child::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  border-top: 2px solid var(--flow-line);
+  transform: translateY(-50%);
+}
+
+.approval-flow > .approval-flow__node:first-child::after {
+  left: calc(100% - 1px);
+}
+
+.approval-flow > .approval-flow__node:last-child::before {
+  right: calc(100% - 1px);
+}
+
+.approval-flow__lane::before,
+.approval-flow > .approval-flow__node:last-child::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--flow-line);
+  transform: translateY(-50%);
+}
+
+.approval-flow__lane::before {
+  left: -6px;
+}
+
+.approval-flow > .approval-flow__node:last-child::after {
+  left: -6px;
+}
+
+.approval-flow__lane .approval-flow__node:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: -13px;
+  top: 50%;
+  width: 12px;
+  height: 10px;
+  background: var(--flow-line);
+  clip-path: polygon(0 38%, 50% 38%, 50% 0, 100% 50%, 50% 100%, 50% 62%, 0 62%);
+  transform: translateY(-50%);
+}
+
+.approval-flow__direct {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 48px;
+  font-size: 11px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* The direct route has no intermediate authority card, but still needs a
+   continuous connector between the split and the VC join. */
+.approval-flow__direct::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 2px solid var(--flow-line);
+  transform: translateY(-50%);
+}

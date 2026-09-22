@@ -188,12 +188,12 @@ export function ReviewMetricsStrip({
   ];
 
   return (
-    <div
+    <div className="review-metrics"
       style={{
         display: "grid",
-        // Every tile sits in one row - its own small white card - rather than wrapping onto a
-        // second line once there are more than a couple of columns (Part A-E, Total, Docs).
+        // Keep the configured metric columns consistent across review queues.
         gridTemplateColumns: columns || `repeat(${Math.max(allMetrics.length, 1)}, minmax(0, 1fr))`,
+        "--metric-count": Math.max(allMetrics.length, 1),
         gap: compact ? 6 : 8,
         ...style,
       }}
@@ -202,7 +202,7 @@ export function ReviewMetricsStrip({
           purple...), competing for attention against the person's name/role above this strip.
           One neutral color throughout now - the label icon + text is what distinguishes each
           tile, not its color - callers no longer need to (and can stop) passing a `color` per metric. */}
-      {allMetrics.map(({ label, val, max, helper }) => {
+      {allMetrics.map(({ label, val, max, helper, displayValue, showProgress = true }) => {
         const hasMax = max !== undefined && max !== null;
         return (
           <div key={label} style={{ minWidth: 0, background: "#fff", borderRadius: 10, padding: compact ? "7px 8px" : "9px 10px", boxShadow: "0 1px 4px rgba(15,23,42,0.05), 0 1px 2px rgba(15,23,42,0.04)" }}>
@@ -211,10 +211,10 @@ export function ReviewMetricsStrip({
               <span style={{ fontSize: compact ? 7 : 7.5, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "normal", lineHeight: 1.2, minWidth: 0 }}>{label}</span>
             </div>
             <div style={{ fontSize: compact ? 11.5 : 13.5, fontWeight: 900, color: "#1e293b", lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {hasMax ? metricText(val) : parseFloat(val) || 0}
+              {displayValue ?? (hasMax ? metricText(val) : parseFloat(val) || 0)}
               {hasMax && <span style={{ fontSize: compact ? 7 : 8, color: "#94a3b8", fontWeight: 700 }}>/{max}</span>}
             </div>
-            {hasMax ? <div style={{ marginTop: 5 }}><ScoreBar score={val} max={max} color="#94a3b8" /></div> : <div style={{ fontSize: 8, color: "#94a3b8", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{helper || "files uploaded"}</div>}
+            {hasMax ? showProgress && <div style={{ marginTop: 5 }}><ScoreBar score={val} max={max} color="#94a3b8" /></div> : <div style={{ fontSize: 8, color: "#94a3b8", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{helper || "files uploaded"}</div>}
           </div>
         );
       })}

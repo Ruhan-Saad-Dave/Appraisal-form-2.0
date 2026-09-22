@@ -1,9 +1,38 @@
-﻿/* eslint-disable no-unused-vars */
-import { useState } from "react";
+/* eslint-disable no-unused-vars */
+import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { login, forgotPassword } from "../services/authService";
 import { refreshAcademicYearCycles } from "../services/academicYearCycles";
 import { isValidEmail, normalizeEmail } from "../utils/validation";
+import {
+  initiateKeycloakLogin,
+  exchangeKeycloakCode,
+  processSsoToken,
+  getKeycloakConfig,
+} from "../services/ssoService";
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+      />
+    </svg>
+  );
+}
 
 function EyeIcon({ hidden = false }) {
   return (
@@ -28,13 +57,105 @@ function EyeIcon({ hidden = false }) {
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [username, setUsername] = useState(""); // This will be treated as email for Supabase
+  const [username, setUsername] = useState(""); // This will be treated as email
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState(location.state?.message || "");
   const [loading, setLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+
+  const { isConfigured: isSsoConfigured } = getKeycloakConfig();
+
+  // Handle SSO tokens, callbacks, and UniOne direct launches on mount
+  useEffect(() => {
+    let cancelled = false;
+
+    const handleIncomingSso = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, "?"));
+
+      const directToken =
+        searchParams.get("token") ||
+        searchParams.get("sso_token") ||
+        searchParams.get("access_token") ||
+        hashParams.get("token") ||
+        hashParams.get("access_token");
+
+      const authCode = searchParams.get("code");
+      const authState = searchParams.get("state");
+
+      if (!directToken && !authCode) {
+        return;
+      }
+
+      setSsoLoading(true);
+      setError("");
+      setMessage("Authenticating with DYPIU SSO...");
+
+      try {
+        let accessToken = directToken;
+
+        // If authorization code is present, exchange it via PKCE
+        if (!accessToken && authCode) {
+          accessToken = await exchangeKeycloakCode(authCode, authState);
+        }
+
+        if (!accessToken) {
+          throw new Error("No access token obtained from identity provider.");
+        }
+
+        // Clean query parameters from URL to avoid re-running on refresh
+        if (typeof window !== "undefined" && window.history?.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // Validate token with backend /auth/me and initialize session
+        await processSsoToken(accessToken);
+
+        if (!cancelled) {
+          navigate("/dashboard", { replace: true });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("SSO authentication error:", err);
+          const rawErr = err?.response?.data?.detail || err?.userMessage || err?.message || "";
+          if (err?.statusCode === 403 || err?.response?.status === 403) {
+            setError(
+              "Authentication succeeded with DYPIU SSO, but no Faculty Appraisal account is assigned to your institutional identity. Please contact the administrator."
+            );
+          } else if (err?.statusCode === 401 || err?.response?.status === 401) {
+            setError("Your SSO session has expired or is invalid. Please sign in again.");
+          } else {
+            setError(rawErr || "Single Sign-On authentication failed. Please try again or use password login.");
+          }
+          setMessage("");
+        }
+      } finally {
+        if (!cancelled) {
+          setSsoLoading(false);
+        }
+      }
+    };
+
+    handleIncomingSso();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  const handleSsoLogin = async () => {
+    setError("");
+    setMessage("");
+    setSsoLoading(true);
+    try {
+      await initiateKeycloakLogin();
+    } catch (err) {
+      setSsoLoading(false);
+      setError(err?.message || "Failed to start DYPIU SSO. Please use password login.");
+    }
+  };
 
   const handleLogin = async () => {
     const email = normalizeEmail(username);
@@ -144,6 +265,33 @@ export default function Login() {
   }
   .dyp-btn:hover:not(:disabled) { background: #1d4ed8; }
   .dyp-btn:disabled { opacity: 0.72; cursor: not-allowed; }
+  .dyp-sso-btn {
+    width: 100%;
+    padding: 11px 14px;
+    background: #ffffff;
+    color: #1e293b;
+    border: 1px solid rgba(255,255,255,0.9);
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .dyp-sso-btn:hover:not(:disabled) {
+    background: #f8fafc;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+  }
+  .dyp-sso-btn:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+  }
   .dyp-forgot {
     background: none;
     border: none;
@@ -210,6 +358,27 @@ export default function Login() {
             {error && <div style={s.error}>{error}</div>}
             {message && <div style={s.success}>{message}</div>}
 
+            {/* DYPIU SSO (Keycloak + Google Workspace) */}
+            {isSsoConfigured && (
+              <>
+                <button
+                  className="dyp-sso-btn"
+                  onClick={handleSsoLogin}
+                  disabled={ssoLoading || loading}
+                  type="button"
+                >
+                  <GoogleIcon />
+                  <span>{ssoLoading ? "Connecting to SSO..." : "Sign in with DYPIU SSO"}</span>
+                </button>
+
+                <div style={s.dividerWrap}>
+                  <div style={s.dividerLine} />
+                  <span style={s.dividerText}>or continue with email</span>
+                  <div style={s.dividerLine} />
+                </div>
+              </>
+            )}
+
             <input
               className="dyp-input"
               type="email"
@@ -245,7 +414,7 @@ export default function Login() {
 
             <div style={{ marginBottom: 16 }} />
 
-            <button className="dyp-btn" onClick={handleLogin} disabled={loading}>
+            <button className="dyp-btn" onClick={handleLogin} disabled={loading || ssoLoading}>
               {loading ? "Signing in..." : "Login"}
             </button>
 
@@ -402,6 +571,28 @@ const s = {
     fontSize: 12,
     marginBottom: 14,
     lineHeight: 1.5,
+  },
+
+  dividerWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 16,
+    marginTop: 0,
+  },
+
+  dividerLine: {
+    flex: 1,
+    height: "1px",
+    background: "rgba(255, 255, 255, 0.18)",
+  },
+
+  dividerText: {
+    fontSize: "11px",
+    color: "rgba(255, 255, 255, 0.6)",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    whiteSpace: "nowrap",
   },
 };
 

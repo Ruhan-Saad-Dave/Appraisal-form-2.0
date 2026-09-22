@@ -2,8 +2,8 @@ import {
   DEAN_TRACKS,
   canonicalDepartmentValue,
   canonicalSchoolValue,
+  getSchoolByValue,
   isCisrSchool,
-  isSoemrSchool,
   normalizeHierarchyText,
 } from "../constants/universityHierarchy";
 import { NON_TEACHING_ROLES, isNonTeachingRole, roReportsToRegistrar } from "../constants/nonTeachingHierarchy";
@@ -36,6 +36,8 @@ export const AUTH_SESSION_KEYS = [
   "registrarEmail",
   "hasHod",
   "hasHOD",
+  "schools",
+  "assignedSchools",
 ];
 
 const ROLE_ALIASES = {
@@ -105,7 +107,8 @@ export const setActiveAcademicYear = (academicYear) => {
 
 export const schoolHasHod = (school) => {
   if (!school) return false;
-  return isSoemrSchool(school);
+  const config = getSchoolByValue(school);
+  return Boolean(config?.hasHod || config?.approvalChain?.includes("hod"));
 };
 
 const firstValue = (...values) =>
@@ -129,6 +132,22 @@ const profilePictureValue = (profile = {}) =>
     profile.pictureUrl,
   );
 
+const stringList = (value) => {
+  if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+    } catch {
+      // comma-separated fallback below
+    }
+    return trimmed.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 const deanDivisionValue = (value) => {
   const normalized = normalizeHierarchyText(value);
   if (normalized === "engineering") return DEAN_TRACKS.ENGINEERING;
@@ -142,17 +161,19 @@ const profileSchoolValue = (role, rawSchool, profile = {}) => {
   if (role === "dean" && division) return division;
   const canonical = canonicalSchoolValue(rawSchool);
   if (role === "dean" && canonical) return getDeanTrack({ ...profile, school: canonical });
-  return canonical;
+  // canonical is "" when the school isn't in UNIVERSITY_SCHOOLS yet - which happens for an
+  // admin-created ("dynamic") school if login runs before GET /schools has landed. Fall back to
+  // the raw value from the backend profile so getSchoolKey(...) can still resolve it once the
+  // live schools data arrives, instead of persisting an empty school that breaks queue scoping.
+  return canonical || String(rawSchool || "").trim();
 };
 
 export const buildProfilePayload = (formData, academicYear = "2026-2027") => {
   const role = normalizeRole(formData.role);
   const nonTeachingRole = isNonTeachingRole(role);
   const school = profileSchoolValue(role, formData.school, formData);
-  // Every teaching school can have Director-managed departments/programs now, not just SoEMR.
-  // This used to gate on isSoemrSchool and silently force department to "" for every other
-  // school - even when the caller (Signup/EditProfile) had already correctly resolved one from
-  // its own department dropdown, that value never actually reached the saved profile.
+  // Every teaching school can have Director-managed departments/programs. Preserve the selected
+  // unit from Signup/EditProfile instead of clearing it for schools outside the old static list.
   const department = nonTeachingRole
     ? String(formData.department || "").trim()
     : canonicalDepartmentValue(formData.department);
@@ -192,9 +213,7 @@ export const storeUserSession = ({ token, profile = {}, fallbackEmail = "" }) =>
   const school = profileSchoolValue(role, firstValue(safeProfile.school), safeProfile);
   const department = nonTeachingRole
     ? firstValue(safeProfile.department)
-    : isSoemrSchool(school)
-      ? canonicalDepartmentValue(firstValue(safeProfile.department))
-      : firstValue(safeProfile.department);
+    : canonicalDepartmentValue(firstValue(safeProfile.department));
   const normalizedDepartment = nonTeachingRole || !isCisrSchool(school) ? department : "";
   // non_teaching_staff: unknown flag => false (RO does the first review).
   // reporting_officer: their OWN appraisal honours the same flag, but unknown => true so an
@@ -259,7 +278,18 @@ export const storeUserSession = ({ token, profile = {}, fallbackEmail = "" }) =>
   sessionStorage.setItem("hasHod", hasHod ? "true" : "false");
   sessionStorage.setItem("hasHOD", hasHod ? "true" : "false");
 
-  return { email, role, school, department: normalizedDepartment, departments: departmentsList, reports_to_registrar: reportsToRegistrar, registrar_email: registrarEmail || "" };
+  const profileSchools = [
+    ...stringList(safeProfile.schools),
+    ...stringList(safeProfile.assignedSchools),
+    ...stringList(safeProfile.assigned_schools),
+  ];
+  const assignedSchools = role === "director"
+    ? (profileSchools.length ? [...new Set(profileSchools)] : (school ? [school] : []))
+    : [];
+  sessionStorage.setItem("schools", JSON.stringify(assignedSchools));
+  sessionStorage.setItem("assignedSchools", JSON.stringify(assignedSchools));
+
+  return { email, role, school, department: normalizedDepartment, departments: departmentsList, schools: assignedSchools, assignedSchools, reports_to_registrar: reportsToRegistrar, registrar_email: registrarEmail || "" };
 };
 
 export const getSessionItem = (key) => {

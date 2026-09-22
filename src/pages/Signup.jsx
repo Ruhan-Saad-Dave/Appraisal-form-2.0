@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { APP_INFO } from "../constants/formConfig";
 import {
-  SCHOOL_OPTIONS,
   canonicalDepartmentValue,
   canonicalSchoolValue,
   isCisrSchool,
@@ -12,6 +11,7 @@ import {
 import { isNonTeachingRole } from "../constants/nonTeachingHierarchy";
 import { register } from "../services/authService";
 import { listSchoolDepartments } from "../services/departmentsService";
+import { useSchools } from "../services/schoolsService";
 import { buildProfilePayload, normalizeRole } from "../auth/session";
 import {
   isValidEmail, isValidPhone, isStrongPassword, passwordRequirements,
@@ -50,6 +50,16 @@ const DEFAULT_DESIGNATION_BY_ROLE = {
 
 export default function Signup() {
   const navigate = useNavigate();
+  // Subscribes to live schools data (falls back to the built-in table while unauthenticated /
+  // before backend ships GET /schools) and re-renders once it lands, so the picker below stays
+  // in sync with SCHOOL_OPTIONS without any other change to this component.
+  const { schools } = useSchools();
+  const schoolPickerOptions = schools
+    .filter((school) => school.active !== false)
+    .map((school) => ({ value: school.code, label: school.label }));
+  // Re-run the department lookup once live schools land, so its School-object fallback
+  // (for admin-created schools whose /departments endpoint is empty) has data to work with.
+  const schoolsSignature = schools.map((s) => s.code).join(",");
   const [formData, setFormData] = useState({
     staffType: "teaching",
     name: "",
@@ -114,7 +124,7 @@ export default function Signup() {
       active = false;
       clearTimeout(timer);
     };
-  }, [isTeachingType, selectedSchool, isCisr]);
+  }, [isTeachingType, selectedSchool, isCisr, schoolsSignature]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -366,7 +376,7 @@ export default function Signup() {
                   <label style={s.label}>School {requiresSchool ? "*" : "(Optional for VC)"}</label>
                   <select className="dyp-input" name="school" value={formData.school} onChange={handleChange} required={requiresSchool}>
                     <option value="">Select school</option>
-                    {SCHOOL_OPTIONS.map((school) => (
+                    {schoolPickerOptions.map((school) => (
                       <option key={school.value} value={school.value}>{school.label}</option>
                     ))}
                   </select>

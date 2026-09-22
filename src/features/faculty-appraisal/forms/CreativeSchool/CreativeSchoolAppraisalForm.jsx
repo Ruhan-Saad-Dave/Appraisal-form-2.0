@@ -1,16 +1,22 @@
+import ReviewerReportHeader from "../../../../components/dashboard/ReviewerReportHeader";
+import { confirmedDraftSave, draftSaveErrorMessage } from "../../../../utils/confirmedDraftSave";
 /* @refresh skip */
 /* eslint-disable no-unused-vars, react-refresh/only-export-components */
+import { useReviewFeedback } from "../../../../components/reviewFeedbackContext";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, LogoutConfirmModal, ScoreBar, ScoreCard, StatusBadge } from "../../../../components/dashboard/dashboardPrimitives";
-import { getSchoolByValue, getSchoolKey } from "../../../../constants/universityHierarchy";
+import { getSchoolByValue, getSchoolKey, UNIVERSITY_SCHOOLS } from "../../../../constants/universityHierarchy";
 import { api } from "../../../../services/api";
 import {
   ACR_DETAIL_POINTS,
   APP_INFO,
   createAcrRows,
-  FORM_SCHOOL_CODES,
+  CREATIVE_FORM_VARIANTS,
   FORM_TYPES,
+  creativeFormVariantForSchool,
+  isCreativeAppraisalSchool,
+  normalizeCreativeVariant,
   fetchSavedAppraisal,
   loadAppraisalDocuments,
   loadSavedAppraisal,
@@ -27,6 +33,7 @@ import {
   renderCombinedPartsSummary,
   INNOVATIVE_METHODS,
   SCORE_LIMITS,
+  COURSE_FILE_DETAIL_OPTIONS,
   averageSectionScore,
   clampScore,
   consultancyGuidelineScore,
@@ -41,6 +48,7 @@ import {
   isValidDDMMYYYY,
   lectureGuidelineScore,
   maskDateDDMMYYYY,
+  normalizeCourseFileDetails,
   normalizeAutoScores,
   projectGuidanceRowMax,
   researchGuidanceRowMax,
@@ -70,8 +78,9 @@ import {
   SchemaSectionTable,
   validateSchemaForm,
   calculateSectionTotal,
+  SUMMARY_DECLARATION_TEXT,
 } from "../../index";
-import { canReviewerRejectProfile, departmentHasHod, getDeanTrack, getReviewChain, pendingStatusFor, profileFromsessionStorage, reviewedStatusFor, roleLabel, visiblePreviousReviewRoles, workflowValidationError, isAppraisalFinalisedByVc, isRejectedStatus, isPendingReviewStatusFor, hasActiveRejection, reviewListFrom } from "../../../../utils/hierarchy";
+import { canReviewerRejectProfile, getDeanTrack, getReviewChain, pendingStatusFor, profileFromsessionStorage, reviewedStatusFor, roleLabel, visiblePreviousReviewRoles, workflowValidationError, isAppraisalFinalisedByVc, isRejectedStatus, isPendingReviewStatusFor, hasActiveRejection, reviewListFrom } from "../../../../utils/hierarchy";
 import { n, pct, RO, TI } from "../../shared";
 import SectionShell from "./common/SectionShell";
 import { tableStyle, thStyle, tdStyle, tdCenter } from "./common/TableStyles";
@@ -81,7 +90,7 @@ import { FacultyRecordHeader, ScoreTable, VCFinalRemarks, FinalSubmitButton, FAC
 
 export const ACCENT = "#4f46e5";
 export const ACCENT2 = "#4338ca";
-const VERIFY_TEXT = "I have verified all the details and confirm that the information provided is correct. I am responsible for the accuracy of this data.";
+const VERIFY_TEXT = SUMMARY_DECLARATION_TEXT;
 const smallButton = (background) => ({ padding: "8px 14px", background, color: "#fff", border: "none", borderRadius: 7, cursor: background === "#94a3b8" ? "not-allowed" : "pointer", fontWeight: 800, fontSize: 12, fontFamily: "inherit" });
 const clampDirectorReviewScore = (sectionKey, row, value, maxScore) => {
   if (String(value ?? "").trim() === "") return "";
@@ -137,23 +146,34 @@ export const creativeSchoolName = (...sources) => {
 
 export const designArtsSchoolName = creativeSchoolName;
 
+const defaultCreativeSchoolLabel = (variant) => {
+  const normalizedVariant = normalizeCreativeVariant(variant);
+  const matchedByVariant = UNIVERSITY_SCHOOLS.find((school) =>
+    school.defaultForm === "creative" && normalizeCreativeVariant(school.formVariant) === normalizedVariant
+  );
+  if (matchedByVariant?.label) return matchedByVariant.label;
+  return UNIVERSITY_SCHOOLS.find((school) => school.defaultForm === "creative")?.label || "Creative School";
+};
+
+const schoolValueFromSource = (source) => {
+  if (!source) return "";
+  if (typeof source === "string") return source;
+  if (typeof source !== "object") return "";
+  return source.school || source.schoolName || source.school_name || source.info?.school || source.profile?.school || source.schoolCode || "";
+};
+
+const creativeVariantFromSource = (source) => {
+  if (!source) return "";
+  const explicitVariant = typeof source === "object"
+    ? source.formVariant || source.form_variant || source.creativeFormVariant || source.creative_form_variant
+    : "";
+  return normalizeCreativeVariant(explicitVariant) || creativeFormVariantForSchool(schoolValueFromSource(source));
+};
+
 export const isMediaCommSchool = (...sources) => {
   for (const source of sources) {
     if (!source) continue;
-    const str = typeof source === "string" ? source : (source.school || source.info?.school || source.profile?.school || "");
-    const schoolObj = getSchoolByValue(str);
-    if (schoolObj?.code === "SoMCS" || schoolObj?.code === "SoMC" || schoolObj?.code === "SoHSS") return true;
-    const lower = String(str).toLowerCase();
-    if (
-      lower.includes("somcs") ||
-      lower.includes("somc") ||
-      lower.includes("media") ||
-      lower.includes("sohss") ||
-      lower.includes("hss") ||
-      lower.includes("humanities") ||
-      lower.includes("social sciences")
-    )
-      return true;
+    if (creativeVariantFromSource(source) === CREATIVE_FORM_VARIANTS.MEDIA_COMMUNICATION) return true;
   }
   return false;
 };
@@ -161,11 +181,7 @@ export const isMediaCommSchool = (...sources) => {
 export const isDesignArtsSchool = (...sources) => {
   for (const source of sources) {
     if (!source) continue;
-    const str = typeof source === "string" ? source : (source.school || source.info?.school || source.profile?.school || "");
-    const schoolObj = getSchoolByValue(str);
-    if (schoolObj?.code === "SoD" || schoolObj?.code === "SoAA" || schoolObj?.code === "SoA") return true;
-    const lower = String(str).toLowerCase();
-    if (lower.includes("sod") || lower.includes("soaa") || lower.includes("soa") || lower.includes("design") || lower.includes("arts")) return true;
+    if (creativeVariantFromSource(source) === CREATIVE_FORM_VARIANTS.DESIGN_ARTS) return true;
   }
   return false;
 };
@@ -174,11 +190,10 @@ export const isCreativeSchool = (...sources) => {
   for (const source of sources) {
     if (!source) continue;
     if (isMediaCommSchool(source) || isDesignArtsSchool(source)) return true;
-    const str = typeof source === "string" ? source : (source.school || source.info?.school || source.profile?.school || source.schoolCode || "");
+    const str = schoolValueFromSource(source);
     const formType = typeof source === "object" ? (source.formType || source.form_type || "") : "";
     if (formType === FORM_TYPES.MEDIA_COMM || formType === FORM_TYPES.DESIGN_ARTS) return true;
-    const code = getSchoolKey(str);
-    if (code === "SoMCS" || code === "SoHSS" || code === "SoD" || code === "SoAA") return true;
+    if (isCreativeAppraisalSchool(str)) return true;
   }
   return false;
 };
@@ -241,7 +256,7 @@ export const defaultMentoringRows = () => [
   { activity: "3. Documented academic/career counselling outcomes", evidence: "", score: "", max: 3 },
 ];
 
-export const emptyCreativeSchoolForm = (defaultSchool = "SoD - School of Design") => ({
+export const emptyCreativeSchoolForm = (defaultSchool = defaultCreativeSchoolLabel()) => ({
   info: {
     name: sessionStorage.getItem("name") || "",
     qual: sessionStorage.getItem("qualification") || "",
@@ -287,11 +302,11 @@ export const emptyCreativeSchoolForm = (defaultSchool = "SoD - School of Design"
   summaryOtherInfo: "",
 });
 
-export const emptyDesignArtsForm = () => emptyCreativeSchoolForm("SoD - School of Design");
+export const emptyDesignArtsForm = () => emptyCreativeSchoolForm(defaultCreativeSchoolLabel(CREATIVE_FORM_VARIANTS.DESIGN_ARTS));
 export const emptyMediaForm = (defaultSchool) => {
-  const schoolVal = defaultSchool || (typeof sessionStorage !== "undefined" ? (sessionStorage.getItem("school") || sessionStorage.getItem("schoolName")) : null) || "SoMCS - School of Media & Communication Studies";
+  const schoolVal = defaultSchool || (typeof sessionStorage !== "undefined" ? (sessionStorage.getItem("school") || sessionStorage.getItem("schoolName")) : null) || defaultCreativeSchoolLabel(CREATIVE_FORM_VARIANTS.MEDIA_COMMUNICATION);
   const schoolObj = getSchoolByValue(schoolVal);
-  return emptyCreativeSchoolForm(schoolObj?.label || schoolVal || "SoMCS - School of Media & Communication Studies");
+  return emptyCreativeSchoolForm(schoolObj?.label || schoolVal || defaultCreativeSchoolLabel(CREATIVE_FORM_VARIANTS.MEDIA_COMMUNICATION));
 };
 
 export const SECTION_OPTIONS = [
@@ -553,6 +568,9 @@ const normalizeCreativeRow = (key, row = {}, index = 0) => {
   }
 
   const fieldAliases = {
+    courseFile: {
+      details: ["details", "availability", "iqac_format", "iqacFormat", "availability_iqac", "availabilityIqac"],
+    },
     journals: {
       doi: ["doi", "issn", "eissn", "e_issn"],
       impact: ["impact", "impactFactor", "impact_factor"],
@@ -640,6 +658,7 @@ const normalizeCreativeRow = (key, row = {}, index = 0) => {
   Object.entries(fieldAliases[key] || {}).forEach(([target, aliases]) => {
     next = withFallbackValue(next, row, target, aliases);
   });
+  if (key === "courseFile") return { ...next, details: normalizeCourseFileDetails(next.details) };
   if (key === "society") {
     // `activity` is this engine's real field; drop the `label` ghost that persistence backfills
     // so a stale pre-edit value can never resurface on the next round-trip / submit.
@@ -1157,7 +1176,7 @@ function SectionTable({ section, form, setForm, docs, setDocs, mode, locked, rev
                           )
                         ) : key === "first" ? (
                           <select
-                            value={row[key] || ""}
+                            value={normalizeCourseFileDetails(row[key])}
                             disabled={!editableSelf || readOnlyField || selfLocked}
                             onChange={(event) => updateRow(index, key, event.target.value)}
                             style={{ width: "100%", height: 30, border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", fontFamily: "inherit", fontSize: 11 }}
@@ -1184,9 +1203,7 @@ function SectionTable({ section, form, setForm, docs, setDocs, mode, locked, rev
                             style={{ width: "100%", height: 30, border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", fontFamily: "inherit", fontSize: 11 }}
                           >
                             <option value="">Select</option>
-                            <option value="1.Available">1.Available</option>
-                            <option value="2.Partially Available">2.Partially Available</option>
-                            <option value="3.Not Available">3.Not Available</option>
+                            {COURSE_FILE_DETAIL_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
                           </select>
                         ) : DROPDOWN_FIELD_OPTIONS[section.key]?.[key] ? (
                           <select
@@ -2137,10 +2154,10 @@ export function PartDRubricInfoCard() {
   return null;
 }
 
-export function CreativeSchoolForm({ form, setForm, docs, setDocs, mode = "self", locked = false, reviewerRole = "", reviewData = {}, setReviewData = () => {}, previousRoles = [], sectionView = "partA" }) {
+export function CreativeSchoolForm({ form, setForm, docs, setDocs, mode = "self", locked = false, partDLocked = false, reviewerRole = "", reviewData = {}, setReviewData = () => {}, previousRoles = [], sectionView = "partA" }) {
   const formFamily = isMediaCommSchool(form?.info?.school || form) ? "media" : "design";
   const academicYear = form?.info?.ay || form?.academic_year || "";
-  const { sections: schemaSections, groupedSections } = useFormSchema({ formFamily, academicYear });
+  const { sections: schemaSections, groupedSections } = useFormSchema?.({ formFamily, academicYear }) || { sections: [], groupedSections: {} };
 
   const handleCustomSectionChange = (secKey, newRows) => {
     setForm?.((prev) => ({
@@ -2163,6 +2180,7 @@ export function CreativeSchoolForm({ form, setForm, docs, setDocs, mode = "self"
     setDocs,
     mode,
     locked,
+    partDLocked,
     reviewerRole,
     reviewData,
     setReviewData,
@@ -2184,7 +2202,7 @@ export function CreativeSchoolForm({ form, setForm, docs, setDocs, mode = "self"
         <PartC sections={PART_C_SECTIONS} SectionTable={SectionTable} sectionTableProps={sectionTableProps} />
       )}
       {(sectionView === "partD" || sectionView === "all") && (
-        <PartD sectionTableProps={sectionTableProps} />
+        <PartD sectionTableProps={{ ...sectionTableProps, locked: locked || partDLocked }} />
       )}
       {(sectionView === "partE" || sectionView === "all") && (
         <PartE sectionTableProps={sectionTableProps} />
@@ -2356,7 +2374,7 @@ export function WorkflowTracker({ declaration, reviews, profile }) {
     Waiting: { emoji: "🕒", bg: "#f8fafc", color: "#64748b", border: "#e2e8f0", chip: "#f1f5f9" },
   };
   return (
-    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: "20px 24px", boxShadow: "0 12px 34px rgba(17,24,39,0.07)" }}>
+    <div className="appraisal-approval-tracker" style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: "20px 24px", boxShadow: "0 12px 34px rgba(17,24,39,0.07)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 12 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>Approval Status Tracker</div>
@@ -2473,6 +2491,7 @@ function buildCreativeSchoolSectionScores(person, reviewData, reviewerRole) {
 }
 
 export function CreativeSchoolAuthorityReviewPanel({ person, reviewerRole, onBack, onSubmit, readOnly = false, showReport = true }) {
+  const confirmRejection = useReviewFeedback();
   const [sectionView, setSectionView] = useState("partA");
   const [reviewData, setReviewData] = useState({});
   const [remarks, setRemarks] = useState(person?.[`${reviewerRole}Remarks`] || "");
@@ -2549,10 +2568,7 @@ export function CreativeSchoolAuthorityReviewPanel({ person, reviewerRole, onBac
   const subjectRole = person?.appraisalRole || person?.appraisal_role || person?.role || "faculty";
   const normalizedSubjectRole = String(subjectRole || "").trim().toLowerCase();
   const subjectSchoolKey = getSchoolKey(person?.school || form.info?.school || person?.info?.school || "");
-  const facultyHasHodInChain = normalizedSubjectRole === "faculty" && departmentHasHod(
-    person?.school || form.info?.school || person?.info?.school || "",
-    person?.department || form.info?.department || person?.info?.department || ""
-  );
+  const facultyHasHodInChain = normalizedSubjectRole === "faculty" && workflowChain.includes("hod");
   const visibleSummaryRoles = reviewerRole === "vc" ? (() => {
     if (normalizedSubjectRole === "faculty") {
       const roles = [];
@@ -2772,8 +2788,7 @@ export function CreativeSchoolAuthorityReviewPanel({ person, reviewerRole, onBac
   const useAuthorityRecordCard = reviewerRole === "hod" || reviewerRole === "dean" || reviewerRole === "director" || reviewerRole === "vc";
   const authorityRecordSchoolTrack = useAuthorityRecordCard ? getDeanTrack({ school: person?.school || form.info?.school, department: person?.department, designation: person?.designation }) : "";
   const authorityRecordSchoolGroupLabel = { engineering: "Engineering", non_engineering: "Non-Engineering", cisr: "CISR" }[authorityRecordSchoolTrack] || person?.school || form.info?.school || APP_INFO.UNIVERSITY_NAME;
-  // The "Faculty appraisal record" summary table (below) mirrors the standard/engineering
-  // dashboards (HODDashboard, DirectorDashboard, DeanDashboard, NonEngineeringDeanDashboard):
+  // The "Faculty appraisal record" summary table (below) mirrors the reviewer dashboards:
   // every non-VC reviewer's record shows only Self + their own score - never intermediate
   // reviewers' scores (e.g. the Dean's record must not surface HOD/Director scores). Only the
   // VC, who reviews last, sees the full prior-reviewer chain.
@@ -2817,15 +2832,24 @@ export function CreativeSchoolAuthorityReviewPanel({ person, reviewerRole, onBac
     sectionScores: buildCreativeSchoolSectionScores(form, reviewData, reviewerRole),
   });
 
+  const manualDraftSaveRef = useRef(false);
   const handleSaveDraft = async () => {
+    if (manualDraftSaveRef.current || panelReadOnly) return false;
+    manualDraftSaveRef.current = true;
     try {
       setSavingDraft(true);
-      await saveReviewerDraft(buildReviewerDraftPayload());
+      setDraftStatus("Saving draft...");
+      await confirmedDraftSave(() => saveReviewerDraft(buildReviewerDraftPayload()));
       setDraftStatus(`Draft saved: ${new Date().toLocaleString()}`);
+      return true;
     } catch (err) {
       console.error("Could not save reviewer draft:", err);
-      setDraftStatus(err?.message || "Unable to save draft.");
+      const message = draftSaveErrorMessage(err);
+      setDraftStatus(message);
+      alert(message);
+      return false;
     } finally {
+      manualDraftSaveRef.current = false;
       setSavingDraft(false);
     }
   };
@@ -2892,7 +2916,7 @@ export function CreativeSchoolAuthorityReviewPanel({ person, reviewerRole, onBac
   }, [academicYear, form, panelReadOnly, remarks, reviewData, reviewerRole, subjectEmail, totals.partA, totals.partB, totals.partC, totals.partD, totals.total]);
 
   const handleSaveAndNext = async () => {
-    await handleSaveDraft();
+    if (!await handleSaveDraft()) return;
     const NEXT_SECTION_MAP = { partA: "partB", partB: "partC", partC: "partD", partD: "partE", partE: "summary" };
     const nextSection = NEXT_SECTION_MAP[sectionView];
     if (nextSection) {
@@ -3026,14 +3050,9 @@ export function CreativeSchoolAuthorityReviewPanel({ person, reviewerRole, onBac
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
-      <div style={{ background: "#0f172a", color: "#f8fafc", borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-        <button onClick={onBack} style={smallButton("#1e293b")}>Back</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 900 }}>{person?.name || person?.email}</div>
-          <div style={{ color: "#94a3b8", fontSize: 12 }}>{person?.designation || titleCase(person?.appraisalRole)} - {schoolDisplayName}</div>
-        </div>
+      <ReviewerReportHeader reviewerLabel={titleCase(reviewerRole)} readOnly={panelReadOnly} onBack={onBack}>
         <StatusBadge status={person?.status} />
-      </div>
+      </ReviewerReportHeader>
       <div style={{ display: "flex", justifyContent: "flex-start" }}>
         <SectionSelector value={sectionView} onChange={setSectionView} label="Review Section" />
       </div>
@@ -3138,8 +3157,8 @@ export function CreativeSchoolAuthorityReviewPanel({ person, reviewerRole, onBac
                     </button>
                     {canReject && (
                       <button
-                        onClick={() => {
-                          if (window.confirm("Reject this appraisal and send it back to the user for editing?")) {
+                        onClick={async () => {
+                          if (await confirmRejection("Reject this appraisal and send it back to the user for editing?", "reject")) {
                             onSubmit(person.id, { partA: totals.partA, partB: totals.partB, partC: totals.partC, partD: totals.partE, total: totals.total }, remarks, buildCreativeSchoolSectionScores(form, reviewData, reviewerRole), confirmed, "rejected");
                           }
                         }}
@@ -3240,8 +3259,8 @@ export function CreativeSchoolAuthorityReviewPanel({ person, reviewerRole, onBac
                   </button>
                   {canReject && (
                     <button
-                      onClick={() => {
-                        if (window.confirm("Reject this appraisal and send it back to the user for editing?")) {
+                      onClick={async () => {
+                        if (await confirmRejection("Reject this appraisal and send it back to the user for editing?", "reject")) {
                           onSubmit(person.id, { partA: totals.partA, partB: totals.partB, partC: totals.partC, partD: totals.partE, total: totals.total }, remarks, buildCreativeSchoolSectionScores(form, reviewData, reviewerRole), confirmed, "rejected");
                         }
                       }}

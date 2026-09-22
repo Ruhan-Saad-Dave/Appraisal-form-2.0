@@ -19,6 +19,8 @@ import {
   roleLabel,
 } from "../../../utils/hierarchy";
 import { clampScore } from "../../../utils/appraisalFormUtils";
+import "./approvalFlow.css";
+import { InlineSvgIcon, SUMMARY_ICONS } from "../components/summaryUi";
 
 function HoverPreviewCard({ value, position }) {
   if (!value) return null;
@@ -265,12 +267,22 @@ export function TI({
 // ---------------------------------------------------------------------------
 // WorkflowStatusTracker — approval-chain strip shown on the faculty dashboard
 // ---------------------------------------------------------------------------
-export function WorkflowStatusTracker({ declaration, reviews, profile }) {
+export function WorkflowStatusTracker({ declaration, reviews, profile, showPartD = false }) {
   const chain = getReviewChain(profile);
   const status = declaration?.status || "";
   const reviewList = reviewListFrom(reviews);
   const reviewByRole = new Map(reviewList.map((review) => [review.reviewer_role, review]));
   const rejected = hasActiveRejection(declaration, reviews);
+  const partDStatus = String(declaration?.part_d_status || declaration?.partDStatus || "").trim().toLowerCase().replace(/[_-]+/g, " ");
+  const registrarReview = reviewList.find((review) => review.reviewer_role === "registrar");
+  const partDReleased = ["released", "released to vc"].includes(partDStatus);
+  const partDLabel = partDReleased
+    ? "Released to VC"
+    : ["registrar approved pending release", "reviewed", "registrar reviewed"].includes(partDStatus)
+      ? "Reviewed - awaiting release"
+      : ["pending", "pending registrar", "pending registrar review"].includes(partDStatus)
+        ? "Pending Registrar"
+        : "Status unavailable";
   const nextRole = rejected
     ? null
     : chain.find((role) => !reviewByRole.has(role));
@@ -315,6 +327,7 @@ export function WorkflowStatusTracker({ declaration, reviews, profile }) {
   }
 
   const submittedStep = {
+    icon: "send",
     label: "Faculty Submission",
     state: "Submitted",
     timestamp: declaration.submitted_at,
@@ -324,6 +337,7 @@ export function WorkflowStatusTracker({ declaration, reviews, profile }) {
     const review = reviewByRole.get(role);
     return {
       label: roleLabel(role),
+      icon: ({ hod: "user", director: "building", dean: "book", vc: "building", center_head: "user" })[role] || "user",
       state: stepState(role),
       timestamp: review?.reviewed_at,
     };
@@ -331,6 +345,7 @@ export function WorkflowStatusTracker({ declaration, reviews, profile }) {
 
   return (
     <div
+      className="appraisal-approval-tracker"
       style={{
         background: "#fff",
         border: "1px solid #e5e7eb",
@@ -365,7 +380,7 @@ export function WorkflowStatusTracker({ declaration, reviews, profile }) {
 
       <div
         style={{
-          display: "grid",
+          display: showPartD ? "none" : "grid",
           gridTemplateColumns: `repeat(${authoritySteps.length + 1}, minmax(0, 1fr))`,
           gap: 16,
           overflowX: "visible",
@@ -457,6 +472,46 @@ export function WorkflowStatusTracker({ declaration, reviews, profile }) {
           );
         })}
       </div>
+      {showPartD && (
+        <div className="approval-flow-scroll">
+          <div className="approval-flow" aria-label="Submission branches to academic authorities and Registrar, then joins at VC">
+            <FlowNode step={submittedStep} colors={stateStyle.Submitted} />
+            <div className="approval-flow__branches">
+              <div className="approval-flow__lane">
+                {authoritySteps.filter((step) => step.label !== roleLabel("vc")).map((step) => (
+                  <FlowNode key={step.label} step={step} colors={stateStyle[step.state] || stateStyle.Waiting} />
+                ))}
+                {authoritySteps.length === 1 && chain[0] === "vc" && (
+                  <div className="approval-flow__direct" aria-label="Direct VC review" />
+                )}
+              </div>
+              <div className="approval-flow__lane">
+                <FlowNode step={{ label: "Registrar - Part D", icon: "calendar", state: partDLabel, timestamp: registrarReview?.reviewed_at }}
+                  colors={partDReleased ? stateStyle.Approved : partDLabel === "Status unavailable" ? stateStyle.Waiting : stateStyle.Pending} />
+              </div>
+            </div>
+            {authoritySteps.find((step) => step.label === roleLabel("vc")) && (
+              <FlowNode step={authoritySteps.find((step) => step.label === roleLabel("vc"))}
+                colors={stateStyle[stepState("vc")] || stateStyle.Waiting} />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FlowNode({ step, colors }) {
+  return (
+    <div className="approval-flow__node" style={{ background: colors.bg, borderColor: colors.border }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: colors.color }}>{step.state}</div>
+      <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
+        <span aria-hidden="true" style={{ display: "inline-flex", flexShrink: 0, color: colors.color }}>
+          <InlineSvgIcon paths={SUMMARY_ICONS[step.icon] || SUMMARY_ICONS.user} size={16} />
+        </span>
+        <span style={{ minWidth: 0 }}>{step.label}</span>
+      </div>
+      {step.timestamp && <div style={{ marginTop: 5, fontSize: 10, color: "#64748b" }}>{new Date(step.timestamp).toLocaleString()}</div>}
     </div>
   );
 }

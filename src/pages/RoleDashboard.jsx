@@ -1,25 +1,23 @@
 import { lazy, Suspense } from "react";
 import { Navigate } from "react-router-dom";
 import { normalizeRole } from "../auth/session";
-import { departmentHasHod, getDeanTrack } from "../utils/hierarchy";
-import { DEAN_TRACKS, getSchoolKey, isCisrSchool } from "../constants/universityHierarchy";
-import { FORM_TYPES, formTypeForSchool } from "../constants/formRouting";
+import { departmentHasHod, getDeanTrack, getSchoolHierarchy } from "../utils/hierarchy";
+import { isCisrSchool } from "../constants/universityHierarchy";
+import { useSchools } from "../services/schoolsService";
 
 // Each dashboard is its own async chunk - only the one matching the user's role
 // is ever downloaded, cutting the initial JS payload by ~90% vs eager imports.
-const Dashboard                 = lazy(() => import("./Dashboard"));
-const DesignArtsDashboard       = lazy(() => import("./DesignArtsDashboard"));
-const MediaCommDashboard        = lazy(() => import("./MediaCommDashboard"));
-const HODDashboard              = lazy(() => import("./HODDashboard"));
-const CISRFacultyDashboard      = lazy(() => import("./CISRFacultyDashboard"));
-const CISRCenterHeadDashboard   = lazy(() => import("./CISRCenterHeadDashboard"));
-const NonTeachingStaffDashboard = lazy(() => import("./NonTeachingStaffDashboard"));
-const ReportingOfficerDashboard = lazy(() => import("./ReportingOfficerDashboard"));
-const RegistrarDashboard        = lazy(() => import("./RegistrarDashboard"));
-const DeanDashboard             = lazy(() => import("./DeanDashboard"));
-const NonEngineeringDeanDashboard = lazy(() => import("./NonEngineeringDeanDashboard"));
-const DirectorDashboard         = lazy(() => import("./DirectorDashboard"));
-const VCDashboard               = lazy(() => import("./VCDashboard"));
+const Dashboard                 = lazy(() => import("./dashboards/Dashboard"));
+const HODDashboard              = lazy(() => import("./dashboards/HODDashboard"));
+const CISRFacultyDashboard      = lazy(() => import("./dashboards/CISRFacultyDashboard"));
+const CISRCenterHeadDashboard   = lazy(() => import("./dashboards/CISRCenterHeadDashboard"));
+const NonTeachingStaffDashboard = lazy(() => import("./dashboards/nonTeaching/NonTeachingStaffDashboard"));
+const ReportingOfficerDashboard = lazy(() => import("./dashboards/nonTeaching/ReportingOfficerDashboard"));
+const RegistrarDashboard        = lazy(() => import("./dashboards/nonTeaching/RegistrarDashboard"));
+const DeanDashboard             = lazy(() => import("./dashboards/DeanDashboard"));
+const NonEngineeringDeanDashboard = lazy(() => import("./dashboards/NonEngineeringDeanDashboard"));
+const DirectorDashboard         = lazy(() => import("./dashboards/DirectorDashboard"));
+const VCDashboard               = lazy(() => import("./dashboards/VCDashboard"));
 
 function DashboardLoader() {
   return (
@@ -30,36 +28,31 @@ function DashboardLoader() {
 }
 
 // Inner component: pure routing switch, all branches are lazy dashboard chunks.
-function DashboardSwitch({ role, school, department, formType }) {
+function DashboardSwitch({ role, school, department }) {
   switch (role) {
     case "faculty":
       if (isCisrSchool(school)) return <CISRFacultyDashboard />;
-      if (formType === FORM_TYPES.MEDIA_COMM) return <MediaCommDashboard />;
-      if (formType === FORM_TYPES.DESIGN_ARTS) return <DesignArtsDashboard />;
       return <Dashboard />;
 
     case "center_head":
       return <CISRCenterHeadDashboard />;
 
     case "hod": {
-      if (formType === FORM_TYPES.MEDIA_COMM) return <MediaCommDashboard />;
-      if (formType === FORM_TYPES.DESIGN_ARTS) return <DesignArtsDashboard />;
-      const hasHod = departmentHasHod(school, department);
+      // An HOD-role user gets the HOD dashboard if EITHER they have a department assigned
+      // (the long-standing rule) OR their school is admin-configured has_hod:true. The latter
+      // covers a dynamic (admin-created) school whose HOD's department field hasn't propagated
+      // to this session yet - without it they'd be shown a Director dashboard and see nothing.
+      const hasHod = departmentHasHod(school, department) || getSchoolHierarchy(school)?.hasHod === true;
       if (!hasHod) return <DirectorDashboard />;
       return <HODDashboard />;
     }
 
     case "director": {
-      if (formType === FORM_TYPES.MEDIA_COMM) return <MediaCommDashboard fixedRole="director" />;
-      if (formType === FORM_TYPES.DESIGN_ARTS) return <DesignArtsDashboard fixedRole="director" />;
       return <DirectorDashboard />;
     }
 
     case "dean": {
-      if (formType === FORM_TYPES.MEDIA_COMM) return <MediaCommDashboard fixedRole="dean" />;
-      if (formType === FORM_TYPES.DESIGN_ARTS) return <DesignArtsDashboard fixedRole="dean" />;
-      const deanTrack = getDeanTrack({ school, department, designation: sessionStorage.getItem("designation") || "" });
-      if (deanTrack === DEAN_TRACKS.NON_ENGINEERING) return <NonEngineeringDeanDashboard />;
+      if (getDeanTrack({ school, department, appraisal_role: role }) === "non_engineering") return <NonEngineeringDeanDashboard />;
       return <DeanDashboard />;
     }
 
@@ -81,16 +74,19 @@ function DashboardSwitch({ role, school, department, formType }) {
 }
 
 export default function RoleDashboard() {
+  const { isLive } = useSchools();
   const role       = normalizeRole(sessionStorage.getItem("role"), "");
   const school     = sessionStorage.getItem("school") || "";
   const department = sessionStorage.getItem("department") || "";
-  const formType   = formTypeForSchool(getSchoolKey(school));
 
   sessionStorage.setItem("role", role);
 
+  const needsSchoolConfig = ["faculty", "hod", "director", "dean", "center_head"].includes(role);
+  if (needsSchoolConfig && !isLive) return <DashboardLoader />;
+
   return (
     <Suspense fallback={<DashboardLoader />}>
-      <DashboardSwitch role={role} school={school} department={department} formType={formType} />
+      <DashboardSwitch role={role} school={school} department={department} />
     </Suspense>
   );
 }

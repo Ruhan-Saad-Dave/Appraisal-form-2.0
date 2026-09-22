@@ -44,8 +44,24 @@ export const INNOVATIVE_METHODS = [
  "Any Other",
 ];
 
+export const COURSE_FILE_DETAIL_OPTIONS = [
+ "1.Available",
+ "2.Partially Available",
+ "3.Not Available",
+];
+
 const normalizedText = (value) =>
  String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+export const normalizeCourseFileDetails = (value) =>{
+ const text = String(value ?? "").trim();
+ if (!text) return "";
+ const key = normalizedText(text).replace(/\s+/g, "");
+ if (["yes", "available", "1.available", "1available"].includes(key)) return COURSE_FILE_DETAIL_OPTIONS[0];
+ if (["partial", "partiallyavailable", "2.partiallyavailable", "2partiallyavailable"].includes(key)) return COURSE_FILE_DETAIL_OPTIONS[1];
+ if (["no", "notavailable", "3.notavailable", "3notavailable"].includes(key)) return COURSE_FILE_DETAIL_OPTIONS[2];
+ return text;
+};
 
 const splitListText = (value) =>
  String(value ?? "")

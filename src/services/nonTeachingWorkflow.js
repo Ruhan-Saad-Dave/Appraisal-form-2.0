@@ -1201,7 +1201,7 @@ export const fetchNonTeachingQueueForRole = async ({
             };
           }
         } catch {
-          // Keep existing item
+          // Keep existing item.
         }
         return item;
       })

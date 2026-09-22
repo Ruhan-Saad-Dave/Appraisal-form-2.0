@@ -67,6 +67,8 @@ tableStyles.TH_DIR = { ...tableStyles.TH, background: "#ecfdf5", color: "#047857
 tableStyles.TDS_DIR = { ...tableStyles.TDS, background: "#f0fdf4", minWidth: 82, color: "#047857" };
 tableStyles.TH_DEAN = { ...tableStyles.TH, background: "#f5f3ff", color: "#6d28d9" };
 tableStyles.TDS_DEAN = { ...tableStyles.TDS, background: "#faf5ff", minWidth: 82, color: "#6d28d9" };
+tableStyles.TH_VC = { ...tableStyles.TH, background: "#fffbeb", color: "#92400e" };
+tableStyles.TDS_VC = { ...tableStyles.TDS, background: "#fffbeb", minWidth: 82, color: "#92400e" };
 tableStyles.TDV = { ...tableStyles.TD, background: "#fbfcff", width: 150, minWidth: 150, maxWidth: 176, padding: "10px 12px", textAlign: "center", overflowWrap: "normal", overflow: "hidden" };
 
-export const { T, TH, TH_HOD, TH_DIR, TH_DEAN, TD, TDC, TDS, TDS_HOD, TDS_DIR, TDS_DEAN, TDV } = tableStyles;
+export const { T, TH, TH_HOD, TH_DIR, TH_DEAN, TH_VC, TD, TDC, TDS, TDS_HOD, TDS_DIR, TDS_DEAN, TDS_VC, TDV } = tableStyles;

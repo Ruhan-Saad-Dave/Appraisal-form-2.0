@@ -1,0 +1,72 @@
+.schema-appraisal-overview > .appraisal-page-header {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.schema-appraisal-overview .appraisal-header-title {
+  font-size: 26px !important;
+  line-height: 1.2 !important;
+}
+
+.schema-appraisal-identity > div { min-width: 0; overflow-wrap: anywhere; }
+.schema-appraisal-overview .appraisal-year-select:disabled { opacity: 1; cursor: default; }
+.schema-approval-content { min-width: 0; }
+.schema-approval-content > .appraisal-info-banner { height: 100%; box-sizing: border-box; }
+.schema-approval-empty,
+.schema-appraisal-overview .overall-score {
+  min-width: 0;
+  padding: 20px 24px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.schema-approval-heading { display: flex; align-items: center; gap: 12px; }
+.schema-approval-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  height: 36px;
+  color: #4f46e5;
+  background: #eef2ff;
+  border: 1px solid #dbe1ff;
+  border-radius: 6px;
+}
+.schema-approval-heading h3 { margin: 0; font-size: 16px; color: #0f172a; font-weight: 750; }
+.schema-approval-heading p { margin: 4px 0 0; font-size: 12px; color: #64748b; }
+.schema-approval-badge {
+  margin-left: auto;
+  padding: 4px 9px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.schema-approval-empty .appraisal-info-banner {
+  margin: 16px 0 0 !important;
+  padding: 12px 14px !important;
+  border: 0 !important;
+  border-radius: 4px !important;
+  background: #f8fafc !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
+  line-height: 1.6;
+}
+.schema-approval-empty .appraisal-info-banner > span:first-child { display: none !important; }
+.schema-appraisal-overview .overall-score__heading h3 { font-size: 16px; color: #0f172a; }
+.schema-appraisal-overview .overall-score > p { margin: 16px 0 0; line-height: 1.6 !important; }
+
+@media (max-width: 900px) {
+  .schema-appraisal-overview > .appraisal-status-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (max-width: 540px) {
+  .schema-appraisal-overview > .appraisal-page-header { padding: 16px !important; }
+  .schema-appraisal-overview .appraisal-header-title { font-size: 22px !important; }
+  .schema-appraisal-identity { flex-wrap: wrap; }
+  .schema-approval-empty, .schema-appraisal-overview .overall-score { padding: 16px; }
+  .schema-approval-heading { flex-wrap: wrap; }
+}

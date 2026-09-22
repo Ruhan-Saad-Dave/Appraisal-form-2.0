@@ -17,7 +17,7 @@ import DirectorPartB from "./PartB/DirectorPartB";
 import PartC from "./PartC/PartC";
 import PartD from "./PartD/PartD";
 import LeaveManagementReadOnly from "./PartD/LeaveManagementReadOnly";
-import { getSchoolKey } from "../../constants/universityHierarchy";
+import { isStandardAppraisalSchool } from "../../constants/formRouting";
 
 
 const REVIEW_SECTION_MAX = {
@@ -72,8 +72,7 @@ const STANDARD_INNOVATIVE_SECTION_MAX = 20;
 
 const isApplicableSchool = (faculty) => {
   const school = faculty?.info?.school || faculty?.school || "";
-  const schoolKey = getSchoolKey(school);
-  return ["SoCSEA", "SoBB", "SoCE", "SoEMR", "SoCM"].includes(schoolKey);
+  return isStandardAppraisalSchool(school);
 };
 
 const getReviewSectionMax = (section, faculty, isDirector = false) => {
@@ -167,7 +166,7 @@ export default function MyAppraisalForm({ faculty, hodData, setHodData, reviewer
 <strong style={{ color: "#312e81" }}>{reviewerLabel} Review Mode</strong> - Faculty self-scores are read-only. Only <span style={{ color: "#4f46e5", fontWeight: 900 }}>{reviewerScoreLabel}</span> columns are editable. Click <span style={{ color: "#4f46e5", fontWeight: 900 }}>View Docs</span> to open uploaded files.
 </div>
 </div>
-<FacultyInfoSection info={info} />
+{sectionView === "partA" && <FacultyInfoSection info={info} />}
 {sectionView === "partA" && <PartA ctx={ctx} />}
 {sectionView === "partB" && <PartB ctx={ctx} />}
 {sectionView === "partC" && <PartC ctx={ctx} />}
@@ -281,7 +280,7 @@ export function DirectorFacultyReviewForm({ faculty, hodData, setHodData, dirDat
 <strong style={{ color: "#065f46" }}>Director Review Mode</strong> - Faculty self-scores are read-only. Only <span style={{ color: "#047857", fontWeight: 900 }}>Director Score</span> columns are editable. Click <span style={{ color: "#047857", fontWeight: 900 }}>View Docs</span> to open uploaded files.
 </div>
 </div>
-<FacultyInfoSection info={info} />
+{sectionView === "partA" && <FacultyInfoSection info={info} />}
 {sectionView === "partA" && <DirectorPartA ctx={ctx} />}
 {sectionView === "partB" && <DirectorPartB ctx={ctx} />}
 {sectionView === "partC" && <PartC ctx={ctx} />}

@@ -2,6 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../../../services/api";
+import { scopedAppraisalSetters as scopeYearSetters } from "../../../../utils/scopedAppraisalSetters";
+import { standardReadSetters } from "./standardReadCompatibility";
+import { assertDraftOnline, confirmedDraftSave, draftSaveErrorMessage } from "../../../../utils/confirmedDraftSave";
 import { getActiveAcademicYear, getSessionItem, setActiveAcademicYear } from "../../../../auth/session";
 import {
   appraisalWindowMessage,
@@ -20,6 +23,7 @@ import {
   loadClosedAppraisal,
   loadAppraisalDocuments,
   loadSavedAppraisal,
+  resetSnapshotSetters,
   saveAppraisalDraftSection,
   submitAppraisal,
   useFormSchema,
@@ -28,6 +32,7 @@ import {
 } from "../../services";
 import {
   SCORE_LIMITS,
+  COURSE_FILE_DETAIL_OPTIONS,
   averageSectionScore,
   clampScore,
   consultancyGuidelineScore,
@@ -40,6 +45,7 @@ import {
   lectureGuidelineScore,
   maskDateDDMMYYYY,
   migrateLegacyRowFields,
+  normalizeCourseFileDetails,
   normalizeAutoScores,
   projectGuidanceRowMax,
   researchGuidanceRowMax,
@@ -54,12 +60,18 @@ import {
 } from "../../utils";
 import {
   AppraisalHeaderImage,
+  AppraisalSummaryActionButton,
+  AppraisalSummaryTable,
   DocCell,
+  InlineSvgIcon,
   RejectionNotice,
   RowButtons as RowBtns,
   SectionCard as SC,
   SectionInfoButton,
   SectionSaveFooter,
+  SUMMARY_ATTACHMENTS_DECLARATION,
+  SUMMARY_DECLARATION_TEXT,
+  SUMMARY_ICONS,
   SummaryOtherInfoField,
   SchemaSectionTable,
   calculateSectionTotal,
@@ -101,6 +113,8 @@ import {
 import { getSchoolByValue } from "../../../../constants/universityHierarchy";
 import { fetchImageAsDataUrl } from "../../../../utils/fullFormReport";
 import LegacyPreviousYearReport from "./LegacyPreviousYearReport";
+import OverallProgress from "../../components/OverallProgress";
+import SubmissionConfirmDialog from "../../components/SubmissionConfirmDialog";
 import {
   isLegacyTwoPartAcademicYear,
   legacySubmittedTotals,
@@ -416,7 +430,6 @@ function SubsectionIcon({ type }) {
     </span>
   );
 }
-
 function SubsectionTitle({ icon, children }) {
   const displayTitle = stripMaxMarksFromTitle(children);
 
@@ -426,51 +439,6 @@ function SubsectionTitle({ icon, children }) {
       <span>{displayTitle}</span>
       <SectionInfoButton titleText={children} />
     </div>
-  );
-}
-
-function InlineSvgIcon({ paths, size = 16, strokeWidth = 2.2 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {paths.map((path) => <path key={path} d={path} />)}
-    </svg>
-  );
-}
-
-const SUMMARY_ICONS = {
-  book: ["M4 19.5V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-1.5Z", "M8 7h6M8 11h8M8 15h5"],
-  flask: ["M9 3h6", "M10 3v6l-4 8a3 3 0 0 0 2.7 4.3h6.6A3 3 0 0 0 18 17l-4-8V3", "M8 16h8"],
-  building: ["M4 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14", "M20 21v-9a2 2 0 0 0-2-2h-2", "M8 9h4M8 13h4M8 17h4"],
-  document: ["M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z", "M14 2v6h6", "M8 13h8M8 17h6"],
-  sigma: ["M18 4H7l6 8-6 8h11"],
-  report: ["M6 2h9l5 5v15H6z", "M14 2v6h6", "M9 13h6M9 17h6"],
-  send: ["M22 2 11 13", "M22 2 15 22l-4-9-9-4 20-7Z"],
-  user: ["M20 21a8 8 0 0 0-16 0", "M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"],
-};
-
-function ScoreBadge({ score, max, color, tone = "#eef2ff" }) {
-  return (
-    <span style={{ display: "inline-flex", justifyContent: "center", minWidth: 92, borderRadius: 999, padding: "6px 12px", background: tone, color, fontSize: 13, fontWeight: 900, lineHeight: 1, whiteSpace: "nowrap" }}>
-      {score.toFixed(1)}/{max}
-    </span>
-  );
-}
-
-function SummaryRow({ label, score, max, color, tone, iconTone, icon }) {
-  return (
-    <tr className="appraisal-summary-row">
-      <td style={{ padding: 0, border: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, minHeight: 52, padding: "10px 12px" }}>
-          <span style={{ width: 32, height: 32, borderRadius: 9, background: iconTone, color, border: `1px solid ${color}20`, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <InlineSvgIcon paths={SUMMARY_ICONS[icon]} size={17} />
-          </span>
-          <span style={{ color: "#1f2937", fontSize: 13, fontWeight: 800, lineHeight: 1.35 }}>{label}</span>
-        </div>
-      </td>
-      <td style={{ width: 150, padding: "10px 12px", border: 0, textAlign: "right", verticalAlign: "middle" }}>
-        <ScoreBadge score={score} max={max} color={color} tone={tone} />
-      </td>
-    </tr>
   );
 }
 
@@ -566,8 +534,6 @@ export default function StandardMyAppraisal({
   const hodAppraisalTab = sectionTab || localAppraisalTab;
   const setHodAppraisalTab = onSectionTabChange || setLocalAppraisalTab;
   const resolvedAcademicYear = defaultAcademicYear || getActiveAcademicYear();
-  const snapshotCacheRef = useRef({});
-  const loadedTabsRef = useRef(new Set([hodAppraisalTab || "partA"]));
 
   // -- HOD's own appraisal form state --
   const [info, setInfo] = useState({
@@ -629,6 +595,7 @@ export default function StandardMyAppraisal({
     const next = { ...r, [k]: v };
     return next;
   }));
+
   const [innovScore, setInnovScore] = useState("");
   const [innovDetails, setInnovDetails] = useState("");
   const [innovRows, setInnovRows] = useState([blankInnovativeRow()]);
@@ -797,6 +764,10 @@ export default function StandardMyAppraisal({
   const [workflowReviews, setWorkflowReviews] = useState([]);
   const [legacyReportTotals, setLegacyReportTotals] = useState(null);
   const [loadingYearData, setLoadingYearData] = useState(false);
+  const [loadedAcademicYear, setLoadedAcademicYear] = useState(null);
+  const [yearLoadError, setYearLoadError] = useState("");
+  const [declarationConfirmed, setDeclarationConfirmed] = useState(false);
+  const [attachmentsConfirmed, setAttachmentsConfirmed] = useState(false);
   const [appraisalWindowStatus, setAppraisalWindowStatus] = useState(null);
   const [appraisalWindowError, setAppraisalWindowError] = useState("");
   const selectedCycle = availableCyclesState.find((cycle) => cycle.academic_year === info.ay);
@@ -804,7 +775,8 @@ export default function StandardMyAppraisal({
   const isSelectedCycleOpen = selectedCycle ? Boolean(selectedCycle.is_open) : false;
   const isLegacyTwoPartYear = isLegacyTwoPartAcademicYear(info.ay);
   const appraisalWindowLocked = !isLegacyTwoPartYear && !isSelectedCycleOpen && !canEditSelfAppraisal(appraisalWindowStatus, { declaration: workflowDeclaration });
-  const formLocked = appraisalLocked || appraisalWindowLocked;
+  const formLocked = appraisalLocked || appraisalWindowLocked || loadingYearData || loadedAcademicYear !== info.ay;
+  const partDLocked = !isLegacyTwoPartYear && hasActiveRejection(workflowDeclaration, workflowReviews);
   const closedAppraisalCycleMessage = `Appraisal cycle for Academic Year ${info.ay} is closed. The next appraisal cycle form will be available soon. For any queries, please contact appraisal@dypiu.ac.in.`;
   const appraisalWindowLockMessage = isSelectedCycleOpen || isSelectedCycleClosed ? "" : appraisalWindowError || (appraisalWindowLocked ? appraisalWindowMessage(appraisalWindowStatus, info.ay) : "");
   // The latest cycle (newest-first list) stays on the normal form, locked read-only, when
@@ -885,48 +857,23 @@ export default function StandardMyAppraisal({
     let cancelled = false;
     const requestedAcademicYear = info.ay;
     const isCurrentLoad = () => !cancelled && loadRequestRef.current === requestId;
-    snapshotCacheRef.current = {};
-    loadedTabsRef.current = new Set([hodAppraisalTab || "partA"]);
-
-    const SETTER_TO_TAB = {
-      setLectures: "partA", setCourseFile: "partA", setInnovRows: "partA", setInnovDetails: "partA", setInnovScore: "partA",
-      setProjects: "partA", setQuals: "partA", setFeedback: "partA", setObeRows: "partA", setMentoringRows: "partA", setAcr: "partA",
-      setJournals: "partB", setBooks: "partB", setIct: "partB", setResearch: "partB", setProjects2: "partB",
-      setExternalProjects: "partB", setPatents: "partB", setAwards: "partB", setConfs: "partB", setProposals: "partB",
-      setProducts: "partB", setFdps: "partB", setTraining: "partB", setExhibitions: "partB",
-      setUniActs: "partC", setDeptActs: "partC", setEventRows: "partC", setSociety: "partC", setIndustry: "partC",
-      setAlumniRows: "partC", setPlacementRows: "partC",
-      setLeaveManagement: "partD"
-    };
-
-    const scopedAppraisalSetters = Object.fromEntries(
-      Object.entries(appraisalSetters).map(([key, setter]) => [
-        key,
-        (...args) => {
-          if (!isCurrentLoad()) return undefined;
-          const targetTab = SETTER_TO_TAB[key];
-          // Legacy two-part years render every section (Part A + Part B) in one report with
-          // no tab selector to switch to (hidden at showSectionSelector && !isLegacyTwoPartYear),
-          // so the lazy per-tab hydration below would never fire and Part B would stay empty.
-          if (!targetTab || targetTab === (hodAppraisalTab || "partA") || isLegacyTwoPartYear) {
-            return setter?.(...args);
-          }
-          if (!snapshotCacheRef.current) snapshotCacheRef.current = {};
-          snapshotCacheRef.current[key] = args[0];
-          return undefined;
-        },
-      ])
-    );
+    // Totals depend on every section, not only the currently visible tab.
+    const scopedAppraisalSetters = scopeYearSetters(standardReadSetters(appraisalSetters), isCurrentLoad);
+    resetSnapshotSetters(requestedAcademicYear, scopedAppraisalSetters);
+    setLeaveManagement([blankLeaveManagementRow()]);
+    setDeclarationConfirmed(false);
+    setAttachmentsConfirmed(false);
+    setLoadedAcademicYear(null);
+    setYearLoadError("");
+    setWorkflowDeclaration(null);
+    setWorkflowReviews([]);
     setDocs({});
     setLegacyReportTotals(null);
     setLoadingYearData(true);
 
     const loadOwnAppraisal = async () => {
       try {
-        const data = await api.get("/appraisal/status", { params: { academic_year: requestedAcademicYear } }).catch((err) => {
-          console.error("Could not load workflow status:", err);
-          return null;
-        });
+        const data = await api.get("/appraisal/status", { params: { academic_year: requestedAcademicYear } });
         if (!isCurrentLoad()) return;
         const declaration = data?.declaration || null;
         setWorkflowDeclaration(declaration);
@@ -963,6 +910,15 @@ export default function StandardMyAppraisal({
         if (savedDeclaration && !declaration) setWorkflowDeclaration(savedDeclaration);
         const savedReviews = reviewListFrom(savedAppraisal?.reviews || savedAppraisal?.payload?.reviews);
         if (savedReviews.length && !loadedReviews.length) setWorkflowReviews(savedReviews);
+        // Submission requires both confirmations. Restore them from this year's
+        // submitted record, not merely from a closed/locked appraisal window.
+        // Rejected records must be confirmed again before resubmission.
+        const submittedDeclaration = declaration || savedDeclaration;
+        const submittedReviews = loadedReviews.length ? loadedReviews : savedReviews;
+        const confirmationsSubmitted = Boolean(submittedDeclaration)
+          && !hasActiveRejection(submittedDeclaration, submittedReviews);
+        setDeclarationConfirmed(confirmationsSubmitted);
+        setAttachmentsConfirmed(confirmationsSubmitted);
 
         const savedForm = savedAppraisal?.payload?.form || savedAppraisal?.form || {};
         const loadedCustom = {};
@@ -986,8 +942,10 @@ export default function StandardMyAppraisal({
             },
           }),
         ]);
+        if (isCurrentLoad()) setLoadedAcademicYear(requestedAcademicYear);
       } catch (err) {
         console.error("Could not load saved appraisal:", err);
+        if (isCurrentLoad()) setYearLoadError("Unable to load this academic year's appraisal. Please reload before editing.");
       } finally {
         if (isCurrentLoad()) setLoadingYearData(false);
       }
@@ -1005,31 +963,6 @@ export default function StandardMyAppraisal({
     }
   }, [isLegacyTwoPartYear, hodAppraisalTab]);
 
-  useEffect(() => {
-    if (!hodAppraisalTab) return;
-    if (loadedTabsRef.current.has(hodAppraisalTab)) return;
-
-    loadedTabsRef.current.add(hodAppraisalTab);
-    const cached = snapshotCacheRef.current;
-    if (cached) {
-      const SETTER_TO_TAB = {
-        setLectures: "partA", setCourseFile: "partA", setInnovRows: "partA", setInnovDetails: "partA", setInnovScore: "partA",
-        setProjects: "partA", setQuals: "partA", setFeedback: "partA", setObeRows: "partA", setMentoringRows: "partA", setAcr: "partA",
-        setJournals: "partB", setBooks: "partB", setIct: "partB", setResearch: "partB", setProjects2: "partB",
-        setExternalProjects: "partB", setPatents: "partB", setAwards: "partB", setConfs: "partB", setProposals: "partB",
-        setProducts: "partB", setFdps: "partB", setTraining: "partB", setExhibitions: "partB",
-        setUniActs: "partC", setDeptActs: "partC", setEventRows: "partC", setSociety: "partC", setIndustry: "partC",
-        setAlumniRows: "partC", setPlacementRows: "partC",
-        setLeaveManagement: "partD"
-      };
-
-      Object.entries(SETTER_TO_TAB).forEach(([setterName, tab]) => {
-        if (tab === hodAppraisalTab && cached[setterName] !== undefined) {
-          appraisalSetters[setterName]?.(cached[setterName]);
-        }
-      });
-    }
-  }, [hodAppraisalTab]);
 
   // -- Computed scores for HOD appraisal --
   const totalLecScore = sumSectionScore(lectures, A1_COURSE_DELIVERY_MAX, "score", 10);
@@ -1121,8 +1054,8 @@ export default function StandardMyAppraisal({
     ["Part D", partDTotal, PART_D_MAX],
   ];
   const [submitting, setSubmitting] = useState(false);
-  const [declarationConfirmed, setDeclarationConfirmed] = useState(false);
-  const [attachmentsConfirmed, setAttachmentsConfirmed] = useState(false);
+  const [submitDialogState, setSubmitDialogState] = useState(null);
+  const [submissionError, setSubmissionError] = useState("");
   const [attachmentDownloading, setAttachmentDownloading] = useState(false);
 
   const validateSelfAppraisalRows = () => {
@@ -1243,13 +1176,7 @@ export default function StandardMyAppraisal({
     });
   };
 
-  const getValue = (localVal, setterName, tab) => {
-    if (loadedTabsRef.current?.has(tab)) {
-      return localVal;
-    }
-    const cached = snapshotCacheRef.current?.[setterName];
-    return cached !== undefined ? cached : localVal;
-  };
+  const getValue = (localVal) => localVal;
 
   const buildSelfDraftForm = (saveStatus = sectionSaveStatus) => {
     const resolvedInnovRows = getValue(innovRows, "setInnovRows", "partA");
@@ -1336,7 +1263,9 @@ export default function StandardMyAppraisal({
       };
     };
 
+    const autoSaveRequestId = loadRequestRef.current;
     const runAutoSave = async (snapshot) => {
+      if (loadRequestRef.current !== autoSaveRequestId) return;
       if (autoSaveInFlightRef.current) {
         queuedAutoSaveRef.current = snapshot;
         return;
@@ -1344,8 +1273,9 @@ export default function StandardMyAppraisal({
       autoSaveInFlightRef.current = true;
       try {
         await saveAppraisalDraftSection(snapshot);
-        lastAutoSavedFingerprintRef.current = snapshot.fingerprint;
+        if (loadRequestRef.current === autoSaveRequestId) lastAutoSavedFingerprintRef.current = snapshot.fingerprint;
       } catch (err) {
+        if (loadRequestRef.current !== autoSaveRequestId) return;
         if (err?.statusCode === 403 || err?.response?.status === 403) {
           markSnapshotLocked();
         } else {
@@ -1362,6 +1292,7 @@ export default function StandardMyAppraisal({
     };
 
     const timer = window.setTimeout(() => {
+      if (loadRequestRef.current !== autoSaveRequestId) return;
       const payload = buildAutoSavePayload();
       if (payload.fingerprint === lastAutoSavedFingerprintRef.current) return;
       runAutoSave(payload);
@@ -1371,7 +1302,9 @@ export default function StandardMyAppraisal({
   }, [info, customFormData, lectures, courseFile, innovRows, projects, obeRows, mentoringRows, quals, feedback, deptActs, uniActs, eventRows, society, industry, alumniRows, placementRows, acr, leaveManagement, journals, books, ict, research, projects2, externalProjects, patents, awards, confs, proposals, products, fdps, training, exhibitions, summaryOtherInfo, docs, sectionSaveStatus, formLocked, submitting, showClosedReportOnly, isLegacyTwoPartYear, isSelectedCycleOpen, appraisalWindowStatus, partATotal, partBTotal, partCTotal, partDTotal, grandTotal, effectivePartAMax, effectivePartBMax, effectiveGrandMax]);
 
   const handleSaveCurrentSection = async (section, navigateNext = true) => {
-    if (formLocked) return;
+    if (savingSection) return;
+    try { assertDraftOnline(); } catch (error) { alert(draftSaveErrorMessage(error)); return; }
+    if (formLocked || (section === "partD" && partDLocked)) return;
     const userEmail = sessionStorage.getItem("username") || sessionStorage.getItem("email");
     if (!userEmail) {
       alert("Please login again before saving. Your session email was not found.");
@@ -1398,7 +1331,7 @@ export default function StandardMyAppraisal({
     const nextStatus = { ...sectionSaveStatus, [section]: true };
     setSavingSection(section);
     try {
-      await saveAppraisalDraftSection({
+      await confirmedDraftSave(() => saveAppraisalDraftSection({
         facultyEmail: userEmail,
         academicYear: info.ay,
         form: buildSelfDraftForm(nextStatus),
@@ -1406,7 +1339,7 @@ export default function StandardMyAppraisal({
         docs,
         submitterProfile: profileFromsessionStorage(),
         sectionSaveStatus: nextStatus,
-      });
+      }));
       setSectionSaveStatus(nextStatus);
       if (navigateNext) {
         const NEXT_SECTION = { partA: "partB", partB: "partC", partC: "partD", partD: "partE", partE: "summary" };
@@ -1423,12 +1356,12 @@ export default function StandardMyAppraisal({
         markSnapshotLocked();
         return;
       }
-      alert(`Unable to save draft.\n\n${err.message}`);
+      alert(draftSaveErrorMessage(err));
     } finally {
       setSavingSection(null);
     }
   };
-  const handleSubmitAppraisal = async () => {
+  const handleSubmitAppraisal = async (confirmed = false) => {
     if (formLocked) {
       alert("This appraisal has already been submitted and is locked for review.");
       return;
@@ -1480,8 +1413,11 @@ export default function StandardMyAppraisal({
       return;
     }
 
-    const confirmSubmit = window.confirm("Are you sure you want to submit your appraisal? This will save your data to the database.");
-    if (!confirmSubmit) return;
+    if (confirmed !== true) {
+      setSubmissionError("");
+      setSubmitDialogState("confirm");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -1502,7 +1438,7 @@ export default function StandardMyAppraisal({
         submitterProfile,
         activeProfile: submitterProfile,
       });
-      alert("Appraisal submitted successfully!");
+      setSubmitDialogState("success");
       setAppraisalLocked(true);
       setWorkflowDeclaration({
         status: workflowStatus,
@@ -1512,7 +1448,8 @@ export default function StandardMyAppraisal({
       setWorkflowReviews([]);
     } catch (err) {
       console.error("Submission error:", err);
-      alert(`Unable to submit appraisal.\n\n${err.message}`);
+      setSubmissionError(err.message || "Your appraisal could not be submitted. Please try again.");
+      setSubmitDialogState("error");
     } finally {
       setSubmitting(false);
     }
@@ -1560,6 +1497,7 @@ export default function StandardMyAppraisal({
       .remarks { white-space: pre-wrap; border: 1px solid #6b7280 !important; padding: 8px; min-height: 34px; margin-bottom: 10px; background: #fff; }
       .declaration-table { border: none !important; margin-bottom: 14px !important; }
       .declaration-table td { border: none !important; background: #fff !important; }
+      ${isLatestCycle && !isLegacyTwoPartYear ? currentAppraisalReportStyles : ""}
     </style>
   </head>
 
@@ -1586,9 +1524,9 @@ export default function StandardMyAppraisal({
 
     <h3>A1. Course Delivery &amp; Classroom Engagement &nbsp;(Max 40)</h3>
     <table>
-      <tr><th>SN</th><th>Semester</th><th>Course Code / Name</th><th>Classes as per Course Structure</th><th>Classes Actually Conducted</th><th>Self Score</th></tr>
-      ${lectures.map((l, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(l.sem)}</td><td>${reportTextValue(l.code)}</td><td class="c">${reportTextValue(l.planned)}</td><td class="c">${reportTextValue(l.conducted)}</td><td class="c">${reportTextValue(l.score)}</td></tr>`).join('')}
-      <tr class="tr"><td colspan="5" class="c b">Total Score (Max 40)</td><td class="c">${totalLecScore > 0 ? totalLecScore.toFixed(1) : "&nbsp;"}</td></tr>
+      <tr><th>SN</th><th>Semester</th><th>Course Code / Name</th><th>Classes as per Course Structure</th><th>Classes Actually Conducted</th><th>% Conducted</th><th>Self Score</th></tr>
+      ${lectures.map((l, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(l.sem)}</td><td>${reportTextValue(l.code)}</td><td class="c">${reportTextValue(l.planned)}</td><td class="c">${reportTextValue(l.conducted)}</td><td class="c">${reportTextValue(l.pctConducted)}</td><td class="c">${reportTextValue(l.score)}</td></tr>`).join('')}
+      <tr class="tr"><td colspan="6" class="c b">Total Score (Max 40)</td><td class="c">${totalLecScore > 0 ? totalLecScore.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
     <h3>A2. Course File &amp; Curriculum Documentation &nbsp;(Max 20)</h3>
@@ -1601,7 +1539,7 @@ export default function StandardMyAppraisal({
     <h3>A3. Innovative Teaching-Learning Methods &nbsp;(Max 20)</h3>
     <table>
       <tr><th>SN</th><th>Methods Used</th><th>Details</th><th>Self Score</th></tr>
-      ${innovRows.map((r, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(r.method)}</td><td>${reportTextValue(r.details)}</td><td class="c">${reportTextValue(r.score)}</td></tr>`).join('')}
+      ${innovRows.map((r, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(r.method)}${r.method === OTHER_INNOVATIVE_METHOD && r.methodOther ? `: ${reportTextValue(r.methodOther)}` : ""}</td><td>${reportTextValue(r.details)}</td><td class="c">${reportTextValue(r.score)}</td></tr>`).join('')}
       <tr class="tr"><td colspan="3" class="c b">Total Score (Max 20)</td><td class="c">${innovTotal > 0 ? innovTotal.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
@@ -1622,9 +1560,9 @@ export default function StandardMyAppraisal({
     ${`
     <h3>A6. Student Project Guidance &nbsp;(Max 20)</h3>
     <table>
-      <tr><th>SN</th><th>Project Type</th><th>Self Score</th></tr>
-      ${projects.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(p.label)}</td><td class="c">${reportTextValue(clampScore(p.score, projectGuidanceRowMax(p)))}</td></tr>`).join('')}
-      <tr class="tr"><td colspan="2" class="c b">Total Score (Max 20)</td><td class="c">${projectTotal > 0 ? projectTotal.toFixed(1) : "&nbsp;"}</td></tr>
+      <tr><th>SN</th><th>Project Title / Batch</th><th>No. of Students</th><th>Industry Collab (Y/N)</th><th>Award (Y/N)</th><th>Student Pub (Y/N)</th><th>Self Score</th></tr>
+      ${projects.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(p.label)}</td><td class="c">${reportTextValue(p.studentsCount)}</td><td>${reportTextValue(p.industryCollab)}</td><td>${reportTextValue(p.awardReceived)}</td><td>${reportTextValue(p.studentPub)}</td><td class="c">${reportTextValue(clampScore(p.score, projectGuidanceRowMax(p)))}</td></tr>`).join('')}
+      <tr class="tr"><td colspan="6" class="c b">Total Score (Max 20)</td><td class="c">${projectTotal > 0 ? projectTotal.toFixed(1) : "&nbsp;"}</td></tr>
     </table>`}
 
     <h3>A7. Student Mentoring &amp; Counselling &nbsp;(Max 10)</h3>
@@ -1636,9 +1574,9 @@ export default function StandardMyAppraisal({
 
     <h3>A8. Professional Development &amp; Qualification Enhancement &nbsp;(Max 10)</h3>
     <table>
-      <tr><th>SN</th><th>Qualification / Category</th><th>Self Score</th></tr>
-      ${quals.map((q, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(q.label)}</td><td class="c">${reportTextValue(String(q.score ?? "").trim() ? clampScore(q.score, A8_QUALIFICATION_MAX) : "")}</td></tr>`).join('')}
-      <tr class="tr"><td colspan="2" class="c b">Total Score (Max 10)</td><td class="c">${qualTotal > 0 ? qualTotal.toFixed(1) : "&nbsp;"}</td></tr>
+      <tr><th>SN</th><th>Qualification / Category</th><th>Awarding Body</th><th>Date</th><th>Self Score</th></tr>
+      ${quals.map((q, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(q.label)}</td><td>${reportTextValue(q.awardingBody)}</td><td>${reportTextValue(q.date)}</td><td class="c">${reportTextValue(String(q.score ?? "").trim() ? clampScore(q.score, A8_QUALIFICATION_MAX) : "")}</td></tr>`).join('')}
+      <tr class="tr"><td colspan="4" class="c b">Total Score (Max 10)</td><td class="c">${qualTotal > 0 ? qualTotal.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
     <div class="pb"></div>
@@ -1646,23 +1584,23 @@ export default function StandardMyAppraisal({
 
     <h3>B1. Journal Publications &nbsp;(Max 100)</h3>
     <table>
-      <tr><th>SN</th><th>Title with Page Nos.</th><th>Journal Details</th><th>DOI No.</th><th>Journal Indexing</th><th>Self Score</th></tr>
-      ${journals.map((j, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(j.title)}</td><td>${reportTextValue(j.journal)}</td><td class="c">${reportTextValue(j.issn)}</td><td class="c">${reportTextValue(j.index)}</td><td class="c">${reportTextValue(j.score)}</td></tr>`).join('')}
-      <tr class="tr"><td colspan="5" class="c b">Total (Max 100)</td><td class="c">${journalScore > 0 ? journalScore.toFixed(1) : "&nbsp;"}</td></tr>
+      <tr><th>SN</th><th>Title</th><th>Journal</th><th>DOI No.</th><th>Impact Factor</th><th>Author Position</th><th>Self Score</th></tr>
+      ${journals.map((j, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(j.title)}</td><td>${reportTextValue(j.journal)}</td><td class="c">${reportTextValue(j.issn)}</td><td class="c">${reportTextValue(j.impactFactor)}</td><td>${reportTextValue(j.authorPosition)}</td><td class="c">${reportTextValue(j.score)}</td></tr>`).join('')}
+      <tr class="tr"><td colspan="6" class="c b">Total (Max 100)</td><td class="c">${journalScore > 0 ? journalScore.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
     <h3>B2. Books, Book Chapters &amp; Edited Volumes &nbsp;(Max 30)</h3>
     <table>
-      <tr><th>SN</th><th>Title with Page Nos.</th><th>Book Title, Editor &amp; Publisher</th><th>ISSN/ISBN</th><th>Type of Publisher</th><th>Co-authors</th><th>First Author</th><th>Self Score</th></tr>
-      ${books.map((b, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(b.title)}</td><td>${reportTextValue(b.book)}</td><td class="c">${reportTextValue(b.issn)}</td><td>${reportTextValue(b.pub)}</td><td>${reportTextValue(b.coauth)}</td><td class="c">${reportTextValue(b.first)}</td><td class="c">${reportTextValue(b.score)}</td></tr>`).join('')}
-      <tr class="tr"><td colspan="7" class="c b">Total (Max 30)</td><td class="c">${bookScore > 0 ? bookScore.toFixed(1) : "&nbsp;"}</td></tr>
+      <tr><th>SN</th><th>Title</th><th>Publisher &amp; ISBN</th><th>Type</th><th>Level</th><th>Co-authors from DYPIU</th><th>Self Score</th></tr>
+      ${books.map((b, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(b.title)}</td><td>${reportTextValue(b.book)}</td><td>${reportTextValue(b.pub)}</td><td>${reportTextValue(b.level)}</td><td>${reportTextValue(b.coauth)}</td><td class="c">${reportTextValue(b.score)}</td></tr>`).join('')}
+      <tr class="tr"><td colspan="6" class="c b">Total (Max 30)</td><td class="c">${bookScore > 0 ? bookScore.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
     <h3>B3. Patents, Copyrights &amp; IP and Product Development &nbsp;(Max 40)</h3>
     <table>
-      <tr><th>SN</th><th>Title</th><th>National / International</th><th>Date of Filing</th><th>Status</th><th>Patent File No.</th><th>Self Score</th></tr>
-      ${patents.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(p.title)}</td><td class="c">${reportTextValue(p.type)}</td><td class="c">${reportTextValue(p.date)}</td><td>${reportTextValue(p.status)}</td><td class="c">${reportTextValue(p.fileNo)}</td><td class="c">${reportTextValue(p.score)}</td></tr>`).join('')}
-      <tr class="tr"><td colspan="6" class="c b">Total (Max 40)</td><td class="c">${patentScore > 0 ? patentScore.toFixed(1) : "&nbsp;"}</td></tr>
+      <tr><th>SN</th><th>Title</th><th>National / International</th><th>Status (Published/Granted)</th><th>Filing / Grant No. &amp; Date</th><th>Self Score</th></tr>
+      ${patents.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(p.title)}</td><td class="c">${reportTextValue(p.type)}</td><td>${reportTextValue(p.status)}</td><td class="c">${reportTextValue(p.fileNo)}</td><td class="c">${reportTextValue(p.score)}</td></tr>`).join('')}
+      <tr class="tr"><td colspan="5" class="c b">Total (Max 40)</td><td class="c">${patentScore > 0 ? patentScore.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
     <h3>B4. External Funded Research Projects &nbsp;(Max 40)</h3>
@@ -1672,12 +1610,13 @@ export default function StandardMyAppraisal({
       <tr class="tr"><td colspan="7" class="c b">Total (Max 40)</td><td class="c">${projectBScore > 0 ? projectBScore.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
+    ${isLegacyTwoPartYear ? `
     <h3>Legacy External Research Projects &nbsp;(Not counted in AY 2026-2027 total)</h3>
     <table>
       <tr><th>SN</th><th>Title</th><th>Funding Agency</th><th>Date of Sanction</th><th>Grant Amount</th><th>Role</th><th>Status</th><th>Self Score</th></tr>
       ${externalProjects.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(p.title)}</td><td>${reportTextValue(p.agency)}</td><td class="c">${reportTextValue(p.date)}</td><td class="c">${reportTextValue(p.amount)}</td><td>${reportTextValue(p.role)}</td><td>${reportTextValue(p.status)}</td><td class="c">${reportTextValue(p.score)}</td></tr>`).join('')}
       <tr class="tr"><td colspan="7" class="c b">Total (Max 0)</td><td class="c">${externalProjectScore > 0 ? externalProjectScore.toFixed(1) : "&nbsp;"}</td></tr>
-    </table>
+    </table>` : ""}
 
     ${`
     <h3>B5. Research Guidance &nbsp;(Max 20)</h3>
@@ -1689,15 +1628,15 @@ export default function StandardMyAppraisal({
 
     <h3>B6. Consultancy, Testing &amp; Training &nbsp;(Max 20)</h3>
     <table>
-      <tr><th>SN</th><th>Title of Proposal</th><th>Duration</th><th>Funding Agency</th><th>Grant Amount Requested</th><th>Self Score</th></tr>
-      ${proposals.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(p.title)}</td><td class="c">${reportTextValue(p.duration)}</td><td>${reportTextValue(p.agency)}</td><td class="c">${reportTextValue(p.amount)}</td><td class="c">${reportTextValue(p.score)}</td></tr>`).join('')}
-      <tr class="tr"><td colspan="5" class="c b">Total (Max 20)</td><td class="c">${proposalScore > 0 ? proposalScore.toFixed(1) : "&nbsp;"}</td></tr>
+      <tr><th>SN</th><th>Client / Organisation</th><th>Nature of Engagement</th><th>Revenue Generated (INR)</th><th>Self Score</th></tr>
+      ${proposals.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(p.agency)}</td><td>${reportTextValue(p.duration)}</td><td class="c">${reportTextValue(p.amount)}</td><td class="c">${reportTextValue(p.score)}</td></tr>`).join('')}
+      <tr class="tr"><td colspan="4" class="c b">Total (Max 20)</td><td class="c">${proposalScore > 0 ? proposalScore.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
     <h3>B7. Conference / FDP / Training / Workshop Contributions as Resource Person &nbsp;(Max 20)</h3>
     <table>
-      <tr><th>SN</th><th>Title / Session</th><th>Type</th><th>Organization</th><th>Level</th><th>Self Score</th></tr>
-      ${confs.map((c, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(c.title)}</td><td>${reportTextValue(c.type)}</td><td>${reportTextValue(c.org)}</td><td>${reportTextValue(c.level)}</td><td class="c">${reportTextValue(c.score)}</td></tr>`).join('')}
+      <tr><th>SN</th><th>Event / Session Title</th><th>Role</th><th>Date</th><th>Level (Intl./National)</th><th>Self Score</th></tr>
+      ${confs.map((c, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(c.title)}</td><td>${reportTextValue(c.role)}</td><td>${reportTextValue(c.date)}</td><td>${reportTextValue(c.level)}</td><td class="c">${reportTextValue(c.score)}</td></tr>`).join('')}
       <tr class="tr"><td colspan="5" class="c b">Total (Max 20)</td><td class="c">${confScore > 0 ? confScore.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
@@ -1706,14 +1645,16 @@ export default function StandardMyAppraisal({
       <tr><th>SN</th><th>Program</th><th>From</th><th>To</th><th>Organized By</th><th>Self Score</th></tr>
       ${fdps.map((f, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(f.program)}</td><td class="c">${reportTextValue(f.fromDate)}</td><td class="c">${reportTextValue(f.toDate)}</td><td>${reportTextValue(f.org)}</td><td class="c">${reportTextValue(clampScore(f.score, SCORE_LIMITS.fdpRow))}</td></tr>`).join('')}
       <tr class="tr"><td colspan="5" class="c b">FDP / Workshops Total</td><td class="c">${fdpScore > 0 ? fdpScore.toFixed(1) : "&nbsp;"}</td></tr>
+      ${!isLegacyTwoPartYear ? `<tr class="tr"><td colspan="5" class="c b">Combined B8 Total (Max 20)</td><td class="c">${b8Score > 0 ? b8Score.toFixed(1) : "&nbsp;"}</td></tr>` : ""}
     </table>
 
+    ${isLegacyTwoPartYear ? `
     <h3>Industrial Training</h3>
     <table>
       <tr><th>SN</th><th>Company / Industry</th><th>Duration</th><th>Nature of Training</th><th>Self Score</th></tr>
       ${training.map((t, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(t.company)}</td><td class="c">${reportTextValue(t.duration)}</td><td>${reportTextValue(t.nature)}</td><td class="c">${reportTextValue(clampScore(t.score, SCORE_LIMITS.fdpRow))}</td></tr>`).join('')}
       <tr class="tr"><td colspan="4" class="c b">Combined B8 Total (Max 20)</td><td class="c">${b8Score > 0 ? b8Score.toFixed(1) : "&nbsp;"}</td></tr>
-    </table>
+    </table>` : ""}
 
     <h3>B9. Research Awards, Fellowships &amp; Citations &nbsp;(Max 20)</h3>
     <table>
@@ -1724,16 +1665,16 @@ export default function StandardMyAppraisal({
 
     <h3>B10. Innovation, Start-ups &amp; Technology Transfer &nbsp;(Max 20)</h3>
     <table>
-      <tr><th>SN</th><th>Details of Product</th><th>Used by Students / Commercialized</th><th>Self Score</th></tr>
-      ${products.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(p.details)}</td><td>${reportTextValue(p.usage)}</td><td class="c">${reportTextValue(p.score)}</td></tr>`).join('')}
-      <tr class="tr"><td colspan="3" class="c b">Total (Max 20)</td><td class="c">${productScore > 0 ? productScore.toFixed(1) : "&nbsp;"}</td></tr>
+      <tr><th>SN</th><th>Title / Start-up / Product</th><th>Role</th><th>Status</th><th>Self Score</th></tr>
+      ${products.map((p, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(p.details)}</td><td>${reportTextValue(p.role)}</td><td>${reportTextValue(p.status)}</td><td class="c">${reportTextValue(p.score)}</td></tr>`).join('')}
+      <tr class="tr"><td colspan="4" class="c b">Total (Max 20)</td><td class="c">${productScore > 0 ? productScore.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
     <h3>B11. ICT Content, MOOCs &amp; E-Learning &nbsp;(Max 20)</h3>
     <table>
-      <tr><th>SN</th><th>Title</th><th>Short Description</th><th>Type / Link</th><th>Quadrants</th><th>Self Score</th></tr>
-      ${ict.map((r, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(r.title)}</td><td>${reportTextValue(r.desc)}</td><td>${reportTextValue(r.type)}</td><td class="c">${reportTextValue(r.quad)}</td><td class="c">${reportTextValue(r.score)}</td></tr>`).join('')}
-      <tr class="tr"><td colspan="5" class="c b">Total (Max 15)</td><td class="c">${ictScore > 0 ? ictScore.toFixed(1) : "&nbsp;"}</td></tr>
+      <tr><th>SN</th><th>Title</th><th>Platform / Type</th><th>Reach / Views (if available)</th><th>Self Score</th></tr>
+      ${ict.map((r, i) => `<tr><td class="c">${i + 1}</td><td>${reportTextValue(r.title)}</td><td>${reportTextValue(r.type)}</td><td class="c">${reportTextValue(r.quad)}</td><td class="c">${reportTextValue(r.score)}</td></tr>`).join('')}
+      <tr class="tr"><td colspan="4" class="c b">Total (Max 20)</td><td class="c">${ictScore > 0 ? ictScore.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
 
     <div class="pb"></div>
@@ -1792,11 +1733,34 @@ export default function StandardMyAppraisal({
     <h3 style="background:#d9d9d9;padding:4px;text-align:center;font-size:13px">PART D - Leave &amp; Attendance Management</h3>
 
     <h3>D1. Leave &amp; Attendance Management &nbsp;(Max ${PART_D_MAX})</h3>
+    ${isLatestCycle && !isLegacyTwoPartYear ? `
+      ${leaveManagement.map((r) => `
+        <table>
+          <colgroup><col style="width:32%"><col style="width:17%"><col style="width:17%"><col style="width:17%"><col style="width:17%"></colgroup>
+          <thead><tr><th style="text-align:left">1. No. of leaves taken in the Year</th><th>CL</th><th>ML</th><th>OD</th><th>C/Off</th></tr></thead>
+          <tbody>
+            <tr><td></td><td class="c">${reportTextValue(r.clTaken)}</td><td class="c">${reportTextValue(r.mlTaken)}</td><td class="c">${reportTextValue(r.odTaken)}</td><td class="c">${reportTextValue(r.coffTaken)}</td></tr>
+            <tr><td class="b">Out of</td><td class="c">${reportTextValue(r.clOutOf)}</td><td class="c">${reportTextValue(r.mlOutOf)}</td><td class="c">${reportTextValue(r.odOutOf)}</td><td class="c">${reportTextValue(r.coffOutOf)}</td></tr>
+          </tbody>
+        </table>
+        <table>
+          <colgroup><col style="width:58%"><col style="width:42%"></colgroup>
+          <tbody>
+            <tr><td class="b">2. No. of Late Remarks in the Year</td><td class="c">${reportTextValue(r.lateRemarks)}</td></tr>
+            <tr><td class="b">3. Total Actual Working Days for the current academic year</td><td class="c">${reportTextValue(r.workingDays)}</td></tr>
+            <tr><td class="b">4. Management of leaves</td><td>${reportTextValue(PART_D_RATING_OPTIONS.find((option) => option.value === r.managementRating)?.label || r.managementRating)}</td></tr>
+            <tr class="tr"><td class="b">Total Score out of (${PART_D_MAX}) =</td><td class="c">${reportTextValue(r.score || 0)}</td></tr>
+          </tbody>
+        </table>
+      `).join('')}
+      <table><tr class="tr"><td class="b">Total Score (Max ${PART_D_MAX})</td><td class="c">${partDTotal > 0 ? partDTotal.toFixed(1) : "&nbsp;"}</td></tr></table>
+    ` : `
     <table>
       <tr><th>SN</th><th>CL Taken</th><th>ML Taken</th><th>OD Taken</th><th>C/Off Taken</th><th>Late Remarks</th><th>Working Days</th><th>Management of Leaves</th><th>Self Score</th></tr>
       ${leaveManagement.map((r, i) => `<tr><td class="c">${i + 1}</td><td class="c">${reportTextValue(r.clTaken)}</td><td class="c">${reportTextValue(r.mlTaken)}</td><td class="c">${reportTextValue(r.odTaken)}</td><td class="c">${reportTextValue(r.coffTaken)}</td><td class="c">${reportTextValue(r.lateRemarks)}</td><td class="c">${reportTextValue(r.workingDays)}</td><td>${reportTextValue(r.managementRating)}</td><td class="c">${reportTextValue(r.score)}</td></tr>`).join('')}
       <tr class="tr"><td colspan="8" class="c b">Total Score (Max ${PART_D_MAX})</td><td class="c">${partDTotal > 0 ? partDTotal.toFixed(1) : "&nbsp;"}</td></tr>
     </table>
+    `}
 
     <div class="pb"></div>
     <h3 style="text-align:center;font-size:13px">SUMMARY OF SELF SCORES - AY ${reportTextValue(info.ay)}</h3>
@@ -1929,6 +1893,9 @@ export default function StandardMyAppraisal({
     }
   };
   const handleAcademicYearChange = (newAcademicYear) => {
+    if (newAcademicYear === info.ay) return;
+    loadRequestRef.current += 1;
+    setLoadingYearData(true);
     setInfo((previousInfo) => profileSafeInfoForYear(previousInfo, newAcademicYear, defaultDesignation));
     setDocs({});
     setLegacyReportTotals(null);
@@ -1940,6 +1907,7 @@ export default function StandardMyAppraisal({
 
   return (
     <div className="appraisal-form-shell" style={{ position: "relative", display: "flex", flexDirection: "column", gap: 24 }}>
+      {submitDialogState && <SubmissionConfirmDialog state={submitDialogState} academicYear={info.ay} successMessage="Your appraisal has been submitted successfully and is now locked for review." errorMessage={`Unable to submit appraisal.\n\n${submissionError}`} onCancel={() => setSubmitDialogState(null)} onConfirm={() => { setSubmitDialogState("submitting"); void handleSubmitAppraisal(true); }} />}
       {loadingYearData && (
         <div className="appraisal-year-loading-overlay" role="status" aria-live="polite">
           <div className="appraisal-year-loading-card">
@@ -1971,23 +1939,24 @@ export default function StandardMyAppraisal({
               <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 260 }}>
               <AppraisalHeaderImage logo="dypiu" height={78} />
               <div>
-                <h2 style={{ margin: 0, fontSize: 26, fontWeight: 900, color: "#111827", letterSpacing: 0, lineHeight: 1.05 }}>My Appraisal Form</h2>
+                <h2 className="appraisal-header-title" style={{ margin: 0, fontSize: 26, fontWeight: 900, color: "#111827", letterSpacing: 0, lineHeight: 1.05 }}>My Appraisal Form</h2>
                 {headerSchoolName && (
                   <div style={{ marginTop: 6, color: "#4b5563", fontSize: 13, fontWeight: 800, lineHeight: 1.25 }}>{headerSchoolName}</div>
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10, fontSize: 13, color: "#6b7280", fontWeight: 700, flexWrap: "wrap" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#111827", fontWeight: 800 }}>
-                    <span style={{ width: 24, height: 24, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe" }}>
-                      <InlineSvgIcon paths={SUMMARY_ICONS.user} size={14} />
+                    <span className="appraisal-header-person-icon" style={{ width: 24, height: 24, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#ede9fe", color: "#6d28d9", border: "1px solid #ddd6fe" }}>
+                      <UserRound size={15} strokeWidth={1.8} aria-hidden="true" />
                     </span>
                     <span>{info.name || titleNameFallback}</span>
                   </span>
                   <span aria-hidden="true" style={{ width: 1, height: 20, background: "#cbd5e1", display: "inline-block" }} />
-                  <span>Academic Year:</span>
+                  <span className="appraisal-header-year-label"><CalendarDays size={15} strokeWidth={1.8} aria-hidden="true" />Academic Year:</span>
                   <select
                     value={info.ay}
                     onChange={(event) => handleAcademicYearChange(event.target.value)}
                     className="appraisal-year-select"
+                    aria-label="Academic year"
                     style={{ height: 36, minWidth: 176, border: "1px solid #d1d5db", borderRadius: 9, padding: "0 12px", fontSize: 13, fontFamily: "inherit", color: "#111827", background: "#fff", outline: "none", fontWeight: 800, boxShadow: "0 1px 2px rgba(15,23,42,0.04)" }}
                   >
                     {academicYearOptions.map((cycle) => (
@@ -2005,35 +1974,13 @@ export default function StandardMyAppraisal({
             </div>
             <div className="appraisal-status-grid" style={{ display: "grid", gridTemplateColumns: isSelectedCycleClosed || isLegacyTwoPartYear ? "1fr" : "minmax(0, 1fr) 316px", gap: 12, alignItems: "stretch" }}>
               <WorkflowStatusTracker
+                showPartD={!isLegacyTwoPartYear}
                 declaration={workflowDeclaration}
                 reviews={workflowReviews}
                 profile={profileFromsessionStorage()}
               />
               {!isSelectedCycleClosed && !isLegacyTwoPartYear && (
-                <div className="appraisal-progress-card" style={{ background: "#fff", borderRadius: 14, padding: "18px 22px", boxShadow: "0 10px 28px rgba(17,24,39,0.06)", border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", justifyContent: "center", gap: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                    <div style={{ fontSize: 14, color: "#374151", fontWeight: 800 }}>Overall Progress</div>
-                    <div style={{ fontSize: 22, color: "#111827", fontWeight: 900, lineHeight: 1 }}>{overallProgress}%</div>
-                  </div>
-                  <div aria-label={`Overall progress ${overallProgress}%`} style={{ height: 8, borderRadius: 999, background: "#e5e7eb", overflow: "hidden" }}>
-                    <div style={{ width: `${overallProgress}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#06b6d4,#10b981)", transition: "width 300ms ease" }} />
-                  </div>
-                  <div style={{ fontSize: 14, color: "#6b7280", fontWeight: 600 }}>{grandTotal.toFixed(1)} / {effectiveGrandMax} Marks</div>
-                  <div aria-label="Part-wise progress" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 5, borderTop: "1px solid #e5e7eb", paddingTop: 8 }}>
-                    {partWiseProgressRows.map(([label, score, max], index) => {
-                      const partColor = ["#4f46e5", "#0891b2", "#059669", "#dc2626"][index] || "#4f46e5";
-                      const partLetter = label.replace("Part ", "");
-                      return (
-                      <div key={label} title={`${label}: ${score.toFixed(1)} / ${max}`} style={{ minWidth: 0, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "5px 4px", textAlign: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, marginBottom: 1 }}>
-                          <span style={{ width: 14, height: 14, borderRadius: 999, display: "inline-flex", alignItems: "center", justifyContent: "center", background: `${partColor}14`, border: `1px solid ${partColor}33`, color: partColor, fontSize: 9, fontWeight: 900 }}>{partLetter}</span>
-                        </div>
-                        <div style={{ fontSize: 10, color: "#0f172a", fontWeight: 900, whiteSpace: "nowrap" }}>{score.toFixed(0)}/{max}</div>
-                      </div>
-                      );
-                    })}
-                  </div>
-                </div>
+<OverallProgress total={grandTotal} max={effectiveGrandMax} percentage={overallProgress} parts={partWiseProgressRows} loading={loadingYearData || loadedAcademicYear !== info.ay} error={yearLoadError} />
               )}
             </div>
             <RejectionNotice
@@ -2043,8 +1990,8 @@ export default function StandardMyAppraisal({
               alertOnceKey={`${sessionStorage.getItem("username") || ""}:${info.ay || ""}:${workflowDeclaration?.status || ""}`}
             />
             {formLocked && (
-              <div style={{ background: appraisalWindowLockMessage || isSelectedCycleClosed ? "#fffbeb" : workflowRejected ? "#fef2f2" : "#ecfdf5", border: `1px solid ${appraisalWindowLockMessage || isSelectedCycleClosed ? "#fde68a" : workflowRejected ? "#fecaca" : "#bbf7d0"}`, color: appraisalWindowLockMessage || isSelectedCycleClosed ? "#92400e" : workflowRejected ? "#991b1b" : "#166534", borderRadius: 9, padding: "11px 14px", fontSize: 12, fontWeight: 750, display: "flex", alignItems: "center", gap: 10 }}>
-                <span aria-hidden="true" style={{ width: 24, height: 24, borderRadius: "50%", background: appraisalWindowLockMessage || isSelectedCycleClosed ? "#fef3c7" : workflowRejected ? "#fee2e2" : "#dcfce7", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 14, fontWeight: 900 }}>{appraisalWindowLockMessage || isSelectedCycleClosed ? "!" : "i"}</span>
+              <div role="status" className={`standard-appraisal-lock-notice appraisal-lock-notice appraisal-lock-notice--${appraisalWindowLockMessage || isSelectedCycleClosed ? "closed" : workflowRejected ? "rejected" : "submitted"}`}>
+                <span className="appraisal-lock-notice__icon" aria-hidden="true">{appraisalWindowLockMessage || isSelectedCycleClosed || workflowRejected ? <Info size={18} strokeWidth={1.8} /> : <LockKeyhole size={18} strokeWidth={1.8} />}</span>
                 <span>
                   {appraisalWindowLockMessage
                     ? appraisalWindowLockMessage
@@ -2065,9 +2012,9 @@ export default function StandardMyAppraisal({
                     ["Submitted Score", `${grandTotal.toFixed(1)} / ${effectiveGrandMax}`],
                     ["Documents", `${documentCount} file${documentCount === 1 ? "" : "s"}`],
                   ].map(([label, value]) => (
-                    <div key={label} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 14px", background: "#f8fafc" }}>
+                    <div key={label} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "13px 14px", background: "linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)", boxShadow: "0 10px 22px rgba(15,23,42,0.04)" }}>
                       <div style={{ fontSize: 11, color: "#64748b", fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
-                      <div style={{ marginTop: 5, fontSize: 16, color: "#111827", fontWeight: 900 }}>{value}</div>
+                      <div style={{ marginTop: 6, fontSize: 18, color: "#111827", fontWeight: 900, lineHeight: 1 }}>{value}</div>
                     </div>
                   ))}
                 </div>
@@ -2139,7 +2086,7 @@ export default function StandardMyAppraisal({
               />
             ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <fieldset disabled={formLocked && hodAppraisalTab !== "summary"} style={{ flex: 1, minWidth: 0, border: 0, padding: 0, margin: 0, opacity: formLocked && hodAppraisalTab !== "summary" ? 0.86 : 1 }}>
+              <fieldset disabled={(formLocked && hodAppraisalTab !== "summary") || (partDLocked && hodAppraisalTab === "partD")} style={{ flex: 1, minWidth: 0, border: 0, padding: 0, margin: 0, opacity: formLocked && hodAppraisalTab !== "summary" ? 0.86 : 1 }}>
 
                 {/* Part A Tab */}
                 {hodAppraisalTab === "partA" && (
@@ -2213,10 +2160,9 @@ export default function StandardMyAppraisal({
                               <td style={TD}><TI val={r.course} onChange={(v) => setCF(i, "course", v)} placeholder="Course code / paper name" /></td>
                               <td style={TD}><TI val={r.title} onChange={(v) => setCF(i, "title", v)} placeholder="Title / Program & Semester" /></td>
                               <td style={TD}>
-                                <select value={r.details} onChange={(e) => setCF(i, "details", e.target.value)} style={{ width: "100%", height: 30, border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", fontFamily: "inherit", fontSize: 11 }}>
+                                <select value={normalizeCourseFileDetails(r.details)} onChange={(e) => setCF(i, "details", e.target.value)} style={{ width: "100%", height: 30, border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", fontFamily: "inherit", fontSize: 11 }}>
                                   <option value="">Select</option>
-                                  <option value="Yes">Yes</option>
-                                  <option value="No">No</option>
+                                  {COURSE_FILE_DETAIL_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
                                 </select>
                               </td>
                               <td style={TD}><DocCell id={`courseFile-${i}`} docs={docs} setDocs={setDocs} /></td>
@@ -3582,7 +3528,7 @@ export default function StandardMyAppraisal({
                   </SC>
                 )}
 
-                {["partA", "partB", "partC", "partD", "partE"].includes(hodAppraisalTab) && !formLocked && (
+                {["partA", "partB", "partC", "partD", "partE"].includes(hodAppraisalTab) && !formLocked && !(partDLocked && hodAppraisalTab === "partD") && (
                   <SectionSaveFooter
                     label={{ partA: "Part A", partB: "Part B", partC: "Part C", partD: "Part D", partE: "Part E" }[hodAppraisalTab]}
                     saved={Boolean(sectionSaveStatus[hodAppraisalTab])}
@@ -3596,15 +3542,13 @@ export default function StandardMyAppraisal({
                 {/* Summary Tab */}
                 {!isLegacyTwoPartYear && hodAppraisalTab === "summary" && (
                   <SC title="Appraisal Summary & Submission" accent="#10b981">
-                    <table className="appraisal-summary-table" style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, marginBottom: 0, border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", boxShadow: "0 12px 26px rgba(15,23,42,0.04)" }}>
-                      <tbody>
-                        <SummaryRow label="Part A - Teaching & Learning" score={partATotal} max={effectivePartAMax} color="#4f46e5" tone="#eef2ff" iconTone="#eef2ff" icon="book" />
-                        <SummaryRow label="Part B - Research & Innovation" score={partBTotal} max={effectivePartBMax} color="#7c3aed" tone="#f3e8ff" iconTone="#f5f3ff" icon="flask" />
-                        <SummaryRow label="Part C - Administrative Contribution" score={partCTotal} max={PART_C_MAX} color="#0f766e" tone="#ccfbf1" iconTone="#ccfbf1" icon="building" />
-                        <SummaryRow label="Part D - Leave & Attendance Management" score={partDTotal} max={PART_D_MAX} color="#0891b2" tone="#cffafe" iconTone="#cffafe" icon="report" />
-                        <SummaryRow label="Grand Total" score={grandTotal} max={effectiveGrandMax} color={g.color} tone="#ffe4e6" iconTone="#f1f5f9" icon="sigma" />
-                      </tbody>
-                    </table>
+                    <AppraisalSummaryTable rows={[
+                      { label: "Part A - Teaching & Learning", score: partATotal, max: effectivePartAMax, color: "#4f46e5", tone: "#eef2ff", iconTone: "#eef2ff", icon: "book" },
+                      { label: "Part B - Research & Innovation", score: partBTotal, max: effectivePartBMax, color: "#7c3aed", tone: "#f3e8ff", iconTone: "#f5f3ff", icon: "flask" },
+                      { label: "Part C - Administrative Contribution", score: partCTotal, max: PART_C_MAX, color: "#0f766e", tone: "#ccfbf1", iconTone: "#ccfbf1", icon: "building" },
+                      { label: "Part D - Leave & Attendance Management", score: partDTotal, max: PART_D_MAX, color: "#0891b2", tone: "#cffafe", iconTone: "#cffafe", icon: "calendar" },
+                      { label: "Grand Total", score: grandTotal, max: effectiveGrandMax, color: g.color, tone: "#ffe4e6", iconTone: "#f1f5f9", icon: "sigma" },
+                    ]} />
 
                     <SummaryOtherInfoField
                       value={summaryOtherInfo}
@@ -3621,7 +3565,7 @@ export default function StandardMyAppraisal({
                         disabled={submitting || formLocked}
                         style={{ marginTop: 2, width: 18, height: 18, accentColor: "#2563eb", flexShrink: 0 }}
                       />
-                      <span>I hereby declare that the information furnished above is true and correct to the best of my knowledge and belief, and is supported by documentary evidence enclosed with this form. I understand that any false claim, if detected at any stage, may render this appraisal liable to cancellation and may attract disciplinary action as per university policy.</span>
+                      <span><strong className="declaration-heading">Declaration of accuracy</strong>{SUMMARY_DECLARATION_TEXT}</span>
                     </label>
 
                     <label className={attachmentsConfirmed ? "appraisal-declaration-card is-checked" : "appraisal-declaration-card"} style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "14px 18px", background: attachmentsConfirmed ? "#dcfce7" : "#ecfdf5", border: `1px solid ${attachmentsConfirmed ? "#86efac" : "#bbf7d0"}`, borderRadius: 12, marginBottom: 0, color: "#334155", fontSize: 13, lineHeight: 1.5, cursor: formLocked ? "not-allowed" : "pointer", transition: "background 180ms ease, border-color 180ms ease, box-shadow 180ms ease", boxShadow: attachmentsConfirmed ? "0 10px 24px rgba(16,185,129,0.10)" : "none" }}>
@@ -3632,29 +3576,22 @@ export default function StandardMyAppraisal({
                         disabled={submitting || formLocked}
                         style={{ marginTop: 2, width: 18, height: 18, accentColor: "#10b981", flexShrink: 0 }}
                       />
-                      <span>I confirm that <strong>all required supporting documents and attachments have been uploaded</strong> against the respective entries. I understand that any <strong>missing or false attachment is my sole responsibility</strong> and may result in the rejection or revision of my appraisal.</span>
+                      <span><strong className="declaration-heading">Supporting documents</strong>{SUMMARY_ATTACHMENTS_DECLARATION}</span>
                     </label>
 
                     <div className="appraisal-summary-actions" style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        onClick={generateReport}
-                        className="appraisal-report-button"
-                        style={{ minWidth: 172, minHeight: 42, padding: "10px 24px", background: "linear-gradient(180deg,#6d28d9 0%,#4c1d95 100%)", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer", fontWeight: 800, fontSize: 13, fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, boxShadow: "0 10px 20px rgba(76,29,149,0.22)" }}
-                      >
-                        <InlineSvgIcon paths={SUMMARY_ICONS.report} size={16} />
+                      <AppraisalSummaryActionButton onClick={generateReport}>
                         Generate Report
-                      </button>
-                      <button
-                        type="button"
+                      </AppraisalSummaryActionButton>
+                      <AppraisalSummaryActionButton
+                        variant="submit"
                         onClick={handleSubmitAppraisal}
                         disabled={submitting || formLocked || !declarationConfirmed || !attachmentsConfirmed}
-                        className="appraisal-submit-button"
-                        style={{ minWidth: 172, minHeight: 42, padding: "10px 24px", background: (formLocked || !declarationConfirmed || !attachmentsConfirmed) ? "#64748b" : "linear-gradient(180deg,#334155 0%,#1e293b 100%)", color: "#fff", border: "none", borderRadius: 9, cursor: (formLocked || !declarationConfirmed || !attachmentsConfirmed) ? "not-allowed" : "pointer", fontWeight: 800, fontSize: 13, fontFamily: "inherit", opacity: submitting ? 0.76 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, boxShadow: (formLocked || !declarationConfirmed || !attachmentsConfirmed) ? "none" : "0 10px 20px rgba(30,41,59,0.18)" }}
+                        locked={formLocked}
+                        loading={submitting}
                       >
-                        {submitting ? <span className="appraisal-button-spinner" aria-hidden="true" /> : <InlineSvgIcon paths={SUMMARY_ICONS.send} size={16} />}
                         {formLocked ? "Submitted & Locked" : submitting ? "Submitting..." : "Submit Appraisal"}
-                      </button>
+                      </AppraisalSummaryActionButton>
                     </div>
                   </SC>
                 )}
@@ -3665,4 +3602,6 @@ export default function StandardMyAppraisal({
     </div>
   );
 }
-
+import { UserRound, CalendarDays, Info, LockKeyhole } from "lucide-react";
+import { currentAppraisalReportStyles } from "./currentAppraisalReportStyles";
+import "./appraisalHeaderDetails.css";

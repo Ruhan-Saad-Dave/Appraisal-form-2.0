@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Avatar } from "./dashboardPrimitives";
 import { ReportBugButton } from "./ReportBugModal";
 import NoticesBell from "./NoticesBell";
+import { FilePenLine, GraduationCap, Users, ShieldCheck, Building2, ClipboardCheck, BookOpen, Layers, UserRound, Mail, LogOut, ChevronDown, FlaskConical, CalendarDays, ListChecks } from "lucide-react";
+import "./DashboardSidebar.css";
 
 const sidebarShellStyle = {
   width: 272,
@@ -11,7 +13,7 @@ const sidebarShellStyle = {
   minHeight: "100vh",
   boxSizing: "border-box",
   overflow: "hidden",
-  background: "linear-gradient(180deg,#0b1120 0%,#0f172a 58%,#0b1120 100%)",
+  background: "#ffffff",
   display: "flex",
   flexDirection: "column",
   padding: "20px 14px",
@@ -21,160 +23,12 @@ const sidebarShellStyle = {
   alignSelf: "flex-start",
   flexShrink: 0,
   borderRight: "1px solid rgba(148,163,184,0.12)",
-  boxShadow: "14px 0 32px rgba(2,6,23,0.35)",
-};
-
-const iconStroke = {
-  width: 19,
-  height: 19,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.9,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-  "aria-hidden": "true",
+  boxShadow: "4px 0 20px rgba(15,23,42,0.04)",
 };
 
 function Icon({ name, active = false, size = 19 }) {
-  const common = {
-    ...iconStroke,
-    width: size,
-    height: size,
-    // No color-coding: the active item is shown by a brighter, elevated glass panel with a
-    // crisp left edge (see the nav button below), never by a different hue per item.
-    style: { color: active ? "#f8fafc" : "#8b96a8" },
-  };
-
-  if (name === "self") {
-    return (
-      <svg {...common}>
-        <path d="M8 4h6l4 4v12H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
-        <path d="M14 4v4h4" />
-        <path d="M9.5 13.5h5" />
-        <path d="M9.5 17h3.5" />
-        <circle cx="17.5" cy="17.5" r="3.1" />
-        <path d="m19.6 19.6 1.4 1.4" />
-      </svg>
-    );
-  }
-
-  if (name === "school") {
-    return (
-      <svg {...common}>
-        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-        <path d="M5 10.5V16c0 1.5 3.13 3 7 3s7-1.5 7-3v-5.5" />
-        <path d="M21 9v6.5" />
-      </svg>
-    );
-  }
-
-  if (name === "faculty") {
-    return (
-      <svg {...common}>
-        <path d="M16 21v-2a4 4 0 0 0-8 0v2" />
-        <circle cx="12" cy="7" r="4" />
-        <path d="M19 8v5" />
-        <path d="M21.5 10.5h-5" />
-      </svg>
-    );
-  }
-
-  if (name === "hod") {
-    return (
-      <svg {...common}>
-        <path d="M12 3.2 19 6v5.2c0 4.4-2.9 7.6-7 8.6-4.1-1-7-4.2-7-8.6V6l7-2.8Z" />
-        <path d="m9.3 12 1.8 1.8 3.6-3.8" />
-      </svg>
-    );
-  }
-
-  if (name === "director") {
-    return (
-      <svg {...common}>
-        <circle cx="12" cy="12" r="8.5" />
-        <circle cx="12" cy="12" r="3" />
-        <path d="M12 3.5V6" />
-        <path d="M12 18v2.5" />
-        <path d="M20.5 12H18" />
-        <path d="M6 12H3.5" />
-      </svg>
-    );
-  }
-
-  if (name === "review") {
-    return (
-      <svg {...common}>
-        <path d="M9 11 11 13 15 9" />
-        <path d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
-        <path d="M14 3v4h4" />
-      </svg>
-    );
-  }
-
-  if (name === "guidelines") {
-    return (
-      <svg {...common}>
-        <path d="M4 19.5V5a2 2 0 0 1 2-2h5v18H6a2 2 0 0 1-2-1.5Z" />
-        <path d="M13 3h5a2 2 0 0 1 2 2v14.5A2 2 0 0 0 18 18h-5V3Z" />
-      </svg>
-    );
-  }
-
-  if (name === "layers") {
-    return (
-      <svg {...common}>
-        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-        <path d="m3 12 9 5 9-5" />
-        <path d="m3 16 9 5 9-5" />
-      </svg>
-    );
-  }
-
-  if (name === "profile") {
-    return (
-      <svg {...common}>
-        <path d="M19 21a7 7 0 0 0-14 0" />
-        <circle cx="12" cy="8" r="4" />
-      </svg>
-    );
-  }
-
-  if (name === "mail") {
-    return (
-      <svg {...common}>
-        <path d="M4 4h16v16H4z" />
-        <path d="m22 6-10 7L2 6" />
-      </svg>
-    );
-  }
-
-  if (name === "logout") {
-    return (
-      <svg {...common} style={{ color: "#f87171" }}>
-        <path d="M10 17 15 12 10 7" />
-        <path d="M15 12H3" />
-        <path d="M21 19V5a2 2 0 0 0-2-2h-6" />
-      </svg>
-    );
-  }
-
-  if (name === "chevron") {
-    return (
-      <svg {...common}>
-        <path d="m6 9 6 6 6-6" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg {...common}>
-      <path d="M7 3h7l3 3v15H7V3Z" />
-      <path d="M14 3v4h4" />
-      <path d="M9 13h6" />
-      <path d="M9 17h4" />
-    </svg>
-  );
+  const Glyph = ({ self: FilePenLine, school: GraduationCap, faculty: Users, hod: ShieldCheck, director: Building2, review: ClipboardCheck, guidelines: BookOpen, sections: Layers, profile: UserRound, mail: Mail, logout: LogOut, chevron: ChevronDown })[name] || FilePenLine;
+  return <Glyph size={size} strokeWidth={1.8} aria-hidden="true" style={{ color: name === "logout" ? "#b91c1c" : active ? "#4338ca" : "#64748b" }} />;
 }
 
 function getNavIconName(tab) {
@@ -195,19 +49,16 @@ function SidebarIcon({ id, active, label }) {
   return <Icon name={getNavIconName({ id, label })} active={active} />;
 }
 
-function SectionIcon({ section }) {
-  const labels = {
-    partA: "A",
-    partB: "B",
-    partC: "C",
-    partD: "D",
-    partE: "E",
-    summary: "S",
-  };
+const SECTION_ICON_CYCLE = [BookOpen, FlaskConical, Building2, CalendarDays, ShieldCheck, ListChecks];
+
+function SectionIcon({ section, index = 0 }) {
+  const KNOWN_ICONS = { partA: BookOpen, partB: FlaskConical, partC: Building2, partD: CalendarDays, partE: ShieldCheck, summary: ListChecks };
+  const isSummary = String(section || "").toLowerCase() === "summary";
+  const Glyph = KNOWN_ICONS[section] || (isSummary ? ListChecks : SECTION_ICON_CYCLE[index % SECTION_ICON_CYCLE.length]);
 
   return (
-    <span style={{ width: 24, height: 24, borderRadius: 8, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "#dbe2f0", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 900 }}>
-      {labels[section] || "A"}
+    <span style={{ width: 24, height: 24, borderRadius: 8, background: "#e2e8f0", border: "1px solid #e2e8f0", color: "#475569", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 900 }}>
+      <Glyph size={16} aria-hidden="true" />
     </span>
   );
 }
@@ -224,8 +75,10 @@ export default function DashboardSidebar({
   showSectionSelector = false,
   sectionTab = "partA",
   onSectionChange,
+  customSectionOptions = null,
   isSectionOpen = () => true,
   afterNavItem,
+  beforeNav,
   afterNav,
   profileSubtitle,
   onLogout,
@@ -236,8 +89,8 @@ export default function DashboardSidebar({
   const sectionTriggerRef = useRef(null);
   const [currentAcademicYear, setCurrentAcademicYear] = useState(() => sessionStorage.getItem("academicYear") || "");
   const isLegacyTwoPartYear = isLegacyTwoPartAcademicYear(currentAcademicYear);
-  const showCurrentYearSectionSelector = showSectionSelector && !isLegacyTwoPartYear;
-  const sectionOptions = isLegacyTwoPartYear
+  const showCurrentYearSectionSelector = showSectionSelector && (Boolean(customSectionOptions) || !isLegacyTwoPartYear);
+  const sectionOptions = customSectionOptions || (isLegacyTwoPartYear
     ? [
         ["partA", "Part A"],
         ["partB", "Part B"],
@@ -249,7 +102,7 @@ export default function DashboardSidebar({
         ["partD", "Part D"],
         ["partE", "Part E"],
         ["summary", "Summary"],
-      ];
+      ]);
   const selectedSectionLabel = sectionOptions.find(([value]) => value === sectionTab)?.[1] || "Part A";
   const profileName = sessionStorage.getItem("name") || "User";
   const profileDisplayName = profileName.split(" ").slice(0, 2).join(" ");
@@ -302,15 +155,15 @@ export default function DashboardSidebar({
   }, [sectionMenuOpen]);
 
   return (
-    <aside className="appraisal-sidebar" style={sidebarShellStyle}>
+    <aside className="appraisal-sidebar appraisal-sidebar--light" style={sidebarShellStyle}>
       <div
         className="appraisal-sidebar-scroll"
         style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column", gap: 14, scrollbarWidth: "thin", scrollbarColor: "rgba(148,163,184,0.35) transparent" }}
       >
       <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "2px 2px 4px" }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#6366f1 0%,#4338ca 100%)", border: "1px solid rgba(199,210,254,0.35)", display: "flex", alignItems: "center", justifyContent: "center", color: "#f8fafc", fontWeight: 900, fontSize: 13, boxShadow: "0 10px 22px rgba(79,70,229,0.38), 0 0 0 3px rgba(99,102,241,0.10)", letterSpacing: 0, flexShrink: 0 }}>FA</div>
+        <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#6366f1 0%,#4338ca 100%)", border: "1px solid rgba(199,210,254,0.35)", display: "flex", alignItems: "center", justifyContent: "center", color: "#ffffff", fontWeight: 900, fontSize: 13, boxShadow: "0 10px 22px rgba(79,70,229,0.38), 0 0 0 3px rgba(99,102,241,0.10)", letterSpacing: 0, flexShrink: 0 }}>FA</div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ color: "#f8fafc", fontWeight: 900, fontSize: 13.5, lineHeight: 1.2, letterSpacing: 0 }}>{appInfo.PORTAL_NAME}</div>
+          <div style={{ color: "#1e293b", fontWeight: 900, fontSize: 13.5, lineHeight: 1.2, letterSpacing: 0 }}>{appInfo.PORTAL_NAME}</div>
           <div style={{ color: "#7c8698", fontSize: 10, lineHeight: 1.3, marginTop: 3 }}>{appInfo.UNIVERSITY_NAME}</div>
         </div>
       </div>
@@ -318,6 +171,7 @@ export default function DashboardSidebar({
       <div style={{ height: 1, background: "linear-gradient(90deg,transparent,rgba(148,163,184,0.22) 20%,rgba(148,163,184,0.22) 80%,transparent)" }} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
+        {beforeNav}
         <div style={{ padding: "0 4px", fontSize: 9.5, fontWeight: 800, color: "#5b667a", textTransform: "uppercase", letterSpacing: 1.1 }}>Menu</div>
         <nav style={{ display: "grid", gap: 5 }} aria-label="Dashboard sections">
           {navItems.filter((tab) => tab.id !== "guidelines").map((tab) => {
@@ -340,9 +194,9 @@ export default function DashboardSidebar({
               className={isActive ? "is-active" : ""}
               style={{
                 position: "relative",
-                background: isActive ? "rgba(255,255,255,0.09)" : "transparent",
+                background: isActive ? "#eef2ff" : "transparent",
                 border: "1px solid transparent",
-                borderRadius: 13,
+                borderRadius: 8,
                 padding: "10px 12px 10px 15px",
                 cursor: "pointer",
                 display: "flex",
@@ -363,19 +217,40 @@ export default function DashboardSidebar({
                   bottom: isActive ? 6 : "50%",
                   width: 3,
                   borderRadius: 999,
-                  background: isActive ? "#f8fafc" : "transparent",
+                  background: isActive ? "#4f46e5" : "transparent",
                   transition: "background 0.15s ease",
                 }}
               />
-              <span style={{ position: "relative", width: 34, height: 34, borderRadius: 11, background: isActive ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.05)", border: isActive ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(255,255,255,0.08)", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s ease, border-color 0.15s ease" }}>
+              <span style={{ position: "relative", width: 34, height: 34, borderRadius: 11, background: isActive ? "#e0e7ff" : "#f1f5f9", border: isActive ? "1px solid #c7d2fe" : "1px solid #e2e8f0", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s ease, border-color 0.15s ease" }}>
                 <SidebarIcon id={tab.id} label={tab.label} active={isActive} />
               </span>
               <div style={{ position: "relative", flex: 1, minWidth: 0, textAlign: "left" }}>
-                <div style={{ color: isActive ? "#f8fafc" : "#c7cedb", fontWeight: isActive ? 900 : 700, fontSize: 12.5, lineHeight: 1.15, whiteSpace: "normal" }}>{tab.label}</div>
-                <div style={{ color: isActive ? "#a8b2c4" : "#6b7686", fontSize: 10.5, marginTop: 3, lineHeight: 1.3 }}>{tab.sub}</div>
+                <div style={{ color: isActive ? "#1e293b" : "#475569", fontWeight: isActive ? 900 : 700, fontSize: 12.5, lineHeight: 1.15, whiteSpace: "normal" }}>{tab.label}</div>
+                <div style={{ color: isActive ? "#64748b" : "#6b7686", fontSize: 10.5, marginTop: 3, lineHeight: 1.3 }}>{tab.sub}</div>
               </div>
               {tab.badge > 0 && (
-                <div style={{ position: "relative", background: isActive ? "#f8fafc" : "rgba(255,255,255,0.08)", color: isActive ? "#0f172a" : "#c7cedb", border: isActive ? "none" : "1px solid rgba(255,255,255,0.12)", fontWeight: 900, fontSize: 10, minWidth: 20, height: 20, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px", flexShrink: 0 }}>{tab.badge}</div>
+                <div
+                  aria-label={`${tab.badge} pending`}
+                  style={{
+                    position: "relative",
+                    background: isActive ? "#ede9fe" : "#f1f5f9",
+                    color: isActive ? "#5b21b6" : "#64748b",
+                    border: isActive ? "1px solid #c4b5fd" : "1px solid #dbe3ee",
+                    fontWeight: 800,
+                    fontSize: 10,
+                    minWidth: 21,
+                    height: 21,
+                    borderRadius: 999,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "0 6px",
+                    flexShrink: 0,
+                    boxShadow: isActive ? "0 1px 2px rgba(91, 33, 182, 0.10)" : "none",
+                  }}
+                >
+                  {tab.badge}
+                </div>
               )}
             </button>
           );
@@ -397,7 +272,7 @@ export default function DashboardSidebar({
       {afterNav}
 
       {showCurrentYearSectionSelector && (
-        <div style={{ marginTop: 3, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "11px 10px" }}>
+        <div className="sidebar-section-picker" style={{ marginTop: 3, background: "#fff", border: "1px solid #b8c5d6", borderRadius: 8, padding: "12px 10px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 9.5, color: "#7c8698", fontWeight: 900, textTransform: "uppercase", marginBottom: 8, letterSpacing: 0.6 }}>
             <Icon name="layers" size={13} />
             My Appraisal Section
@@ -409,9 +284,9 @@ export default function DashboardSidebar({
               onClick={() => setSectionMenuOpen((open) => !open)}
               aria-haspopup="listbox"
               aria-expanded={sectionMenuOpen}
-              style={{ width: "100%", height: 40, border: sectionMenuOpen ? "1px solid rgba(255,255,255,0.28)" : "1px solid rgba(255,255,255,0.10)", borderRadius: 12, padding: "0 11px 0 9px", color: "#f8fafc", background: "rgba(255,255,255,0.05)", fontFamily: "inherit", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: 9, boxShadow: sectionMenuOpen ? "0 0 0 3px rgba(255,255,255,0.06)" : "none" }}
+              style={{ width: "100%", height: 40, border: sectionMenuOpen ? "1px solid #a5b4fc" : "1px solid #e0e7ff", borderRadius: 12, padding: "0 11px 0 9px", color: "#1e293b", background: "#f1f5f9", fontFamily: "inherit", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: 9, boxShadow: sectionMenuOpen ? "0 0 0 3px rgba(255,255,255,0.06)" : "none" }}
             >
-              <SectionIcon section={sectionTab} />
+              <SectionIcon section={sectionTab} index={sectionOptions.findIndex(([value]) => value === sectionTab)} />
               <span style={{ flex: 1, textAlign: "left", fontSize: 12.5 }}>{selectedSectionLabel}</span>
               <Icon name="chevron" size={15} />
             </button>
@@ -424,9 +299,9 @@ export default function DashboardSidebar({
         <div
           data-section-dropdown="true"
           role="listbox"
-          style={{ position: "fixed", zIndex: 2000, top: menuRect.bottom + 7, left: menuRect.left, width: menuRect.width, padding: 6, background: "#141d33", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 12, boxShadow: "0 18px 34px rgba(2,6,23,0.45)", display: "grid", gap: 3 }}
+          style={{ position: "fixed", zIndex: 2000, top: menuRect.bottom + 7, left: menuRect.left, width: menuRect.width, padding: 6, background: "#ffffff", border: "1px solid #e0e7ff", borderRadius: 12, boxShadow: "0 12px 28px rgba(15,23,42,0.12)", display: "grid", gap: 3 }}
         >
-          {sectionOptions.map(([value, label]) => {
+          {sectionOptions.map(([value, label], index) => {
             const disabled = !isSectionOpen(value);
             const selected = value === sectionTab;
             return (
@@ -441,9 +316,9 @@ export default function DashboardSidebar({
                   onSectionChange?.(value);
                   setSectionMenuOpen(false);
                 }}
-                style={{ minHeight: 34, border: "1px solid transparent", borderRadius: 9, background: selected ? "rgba(255,255,255,0.10)" : "transparent", color: disabled ? "#4b5563" : selected ? "#f8fafc" : "#c7cedb", cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: selected ? 900 : 750, display: "flex", alignItems: "center", gap: 8, padding: "0 9px", textAlign: "left" }}
+                style={{ minHeight: 34, border: "1px solid transparent", borderRadius: 9, background: selected ? "#e0e7ff" : "transparent", color: disabled ? "#4b5563" : selected ? "#1e293b" : "#475569", cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: selected ? 900 : 750, display: "flex", alignItems: "center", gap: 8, padding: "0 9px", textAlign: "left" }}
               >
-                <SectionIcon section={value} />
+                <SectionIcon section={value} index={index} />
                 <span>{label}</span>
               </button>
             );
@@ -452,52 +327,31 @@ export default function DashboardSidebar({
         document.body
       )}
 
-      <div style={{ height: 1, background: "linear-gradient(90deg,transparent,rgba(148,163,184,0.20) 20%,rgba(148,163,184,0.20) 80%,transparent)" }} />
-      <div style={{ borderRadius: 12, background: "linear-gradient(180deg,rgba(21,31,49,0.98),rgba(10,16,29,0.98))", border: "1px solid rgba(148,163,184,0.10)", boxShadow: "0 14px 28px rgba(2,6,23,0.22), inset 0 1px 0 rgba(255,255,255,0.03)", overflow: "hidden" }}>
+      <section className="sidebar-account" aria-label="Your account">
         <button
           type="button"
+          className="sidebar-account__profile"
           onClick={() => navigate("/edit-profile")}
           title="Edit profile"
-          style={{ position: "relative", display: "flex", alignItems: "center", gap: 11, background: "transparent", border: "none", padding: "13px 13px 12px", width: "100%", boxSizing: "border-box", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+          aria-label={`Edit profile for ${profileName}`}
         >
-          <Avatar
-            initials={profileInitials}
-            src={profileImageUrl}
-            color="#4f46e5"
-            size={44}
-          />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: "#f8fafc", fontSize: 14, fontWeight: 900, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profileDisplayName}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, minWidth: 0 }}>
-              <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 0 3px rgba(34,197,94,0.13)", flexShrink: 0 }} />
-              <span style={{ color: "#a8b3c7", fontSize: 11, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cleanProfileSubtitle || "Dashboard"}</span>
-            </div>
-          </div>
-          <span style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(15,23,42,0.38)", border: "1px solid rgba(203,213,225,0.08)", color: "#cbd5e1", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Icon name="profile" size={15} />
+          <span className="sidebar-account__avatar">
+            <Avatar initials={profileInitials} src={profileImageUrl} color="#0f766e" size={42} />
           </span>
+          <span className="sidebar-account__identity">
+            <span className="sidebar-account__name" title={profileName}>{profileDisplayName}</span>
+            <span className="sidebar-account__role" title={cleanProfileSubtitle}>{cleanProfileSubtitle || "Dashboard"}</span>
+          </span>
+          <UserRound size={17} className="sidebar-account__edit" aria-hidden="true" />
         </button>
-        <div style={{ padding: "2px 10px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <NoticesBell style={{ height: 44, borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.035)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "none" }} />
-          <ReportBugButton
-            iconOnly
-            style={{ height: 44, borderRadius: 8, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.035)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit", boxShadow: "none" }}
-          />
+        <div className="sidebar-account__tools" role="group" aria-label="Account actions">
+          <NoticesBell plainIcon className="sidebar-account__tool sidebar-account__tool--notices" style={{ position: "relative" }} />
+          <ReportBugButton plainIcon className="sidebar-account__tool sidebar-account__tool--feedback" style={{ position: "relative" }} />
+          <button type="button" className="sidebar-account__tool sidebar-account__tool--logout" onClick={onLogout} title="Logout" aria-label="Logout">
+            <LogOut size={19} aria-hidden="true" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onLogout}
-          style={{ width: "100%", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "rgba(127,29,29,0.10)", border: "none", padding: "0 13px", cursor: "pointer", fontFamily: "inherit", transition: "background 0.15s ease" }}
-          onMouseEnter={(event) => { event.currentTarget.style.background = "rgba(127,29,29,0.24)"; }}
-          onMouseLeave={(event) => { event.currentTarget.style.background = "rgba(127,29,29,0.16)"; }}
-        >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-            <Icon name="logout" size={16} />
-            <span style={{ color: "#fecaca", fontWeight: 900, fontSize: 12.5 }}>Logout</span>
-          </span>
-          <span aria-hidden="true" style={{ color: "#fca5a5", fontSize: 16, lineHeight: 1 }}>›</span>
-        </button>
-      </div>
+      </section>
     </aside>
   );
 }

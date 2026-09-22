@@ -1,0 +1,82 @@
+.feedback-dialog { width: min(720px, calc(100vw - 32px)); min-height: min(600px, calc(100dvh - 48px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; margin: auto; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #1e293b; overflow-y: auto; box-shadow: 0 24px 80px rgba(15,23,42,.24); }
+.feedback-dialog[open] { animation: feedback-dialog-in .2s ease-out both; }
+.feedback-dialog.is-closing { animation: feedback-dialog-out .14s ease-in both; pointer-events: none; }
+.feedback-dialog::backdrop { background: rgba(15,23,42,.45); transition: background .2s ease; }
+.feedback-dialog.is-closing::backdrop { background: rgba(15,23,42,0); transition: background .14s ease; }
+@starting-style {
+  .feedback-dialog[open]::backdrop { background: rgba(15,23,42,0); }
+}
+.feedback-header { display: flex; align-items: center; gap: 14px; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; background: linear-gradient(180deg, #fbfbff, #fff); border-radius: 6px 6px 0 0; }
+.feedback-symbol { display: inline-flex; padding: 11px; background: linear-gradient(135deg, #fee2e2, #fecdd3); color: #e11d48; border-radius: 6px; box-shadow: 0 2px 8px rgba(225,29,72,.18), inset 0 0 0 1px rgba(225,29,72,.08); }
+.feedback-header h2 { margin: 0; font-size: 20px; letter-spacing: 0; }
+.feedback-header p { margin: 4px 0 0; font-size: 12px; color: #64748b; }
+.feedback-close { display: inline-flex; align-items: center; justify-content: center; margin-left: auto; width: 36px; height: 36px; flex-shrink: 0; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; transition: background .15s ease, color .15s ease, transform .15s ease; }
+.feedback-close:hover { background: #fee2e2; color: #e11d48; border-color: #fecdd3; }
+.feedback-close:active { transform: scale(.92); }
+.feedback-form { display: grid; gap: 16px; padding: 20px 24px; }
+.feedback-form fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
+.feedback-form legend { padding: 0; margin-bottom: 10px; font-size: 12px; font-weight: 700; }
+.feedback-categories { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; }
+.feedback-categories label { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; border: 1px solid #dbe3ec; border-radius: 6px; color: #64748b; font-size: 12px; cursor: pointer; position: relative; transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease; }
+.feedback-categories label svg { color: var(--accent, currentColor); transition: color .15s ease; }
+.feedback-categories label.is-selected { font-weight: 700; box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.feedback-categories label:not(.is-selected):hover { border-color: var(--accent, #cbd5e1); color: var(--accent, #475569); background: #f8fafc; transform: translateY(-1px); }
+.feedback-categories input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.feedback-categories label:focus-within { outline: 2px solid #6366f1; outline-offset: 2px; }
+.feedback-field { display: grid; gap: 8px; font-size: 12px; font-weight: 700; }
+.feedback-field-label { display: inline-flex; align-items: center; gap: 6px; color: #475569; }
+.feedback-field-label svg { color: #94a3b8; }
+.feedback-field input, .feedback-field textarea { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #1e293b; font: inherit; font-size: 14px; font-weight: 400; line-height: 1.5; transition: border-color .15s ease, box-shadow .15s ease; }
+.feedback-field input:hover, .feedback-field textarea:hover { border-color: #94a3b8; }
+.feedback-field input:focus, .feedback-field textarea:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+.feedback-field textarea { resize: vertical; }
+.feedback-field input, .feedback-field textarea { font-size: 13px; }
+.feedback-attachment { min-width: 0; }
+.feedback-attachment__heading { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; font-weight: 700; }
+.feedback-attachment__heading > span:first-child { display: inline-flex; align-items: center; gap: 6px; color: #475569; }
+.feedback-attachment__heading > span:first-child svg { color: #94a3b8; }
+.feedback-attachment__heading small, .feedback-attachment__heading > span:last-child { font-size: 11px; font-weight: 400; color: #64748b; }
+.feedback-attachment__heading small { margin-left: 6px; }
+.feedback-upload { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px; border: 1px dashed #94b9b3; border-radius: 6px; background: #f7fcfb; color: #0f766e; cursor: pointer; font-family: inherit; box-sizing: border-box; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+.feedback-upload:hover { border-color: #0f766e; background: #f0fdfa; transform: translateY(-1px); }
+.feedback-upload:active { transform: translateY(0); }
+.feedback-upload span { display: grid; gap: 4px; text-align: left; }
+.feedback-upload strong { font-size: 12px; }
+.feedback-upload small { font-size: 11px; color: #64748b; }
+.feedback-file { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #b4d7cf; border-radius: 6px; color: #0f766e; background: #f7fcfb; }
+.feedback-file img { width: 56px; height: 48px; object-fit: contain; border-radius: 4px; background: #fff; border: 1px solid #d1e7e1; }
+.feedback-file > div { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.feedback-file strong { font-size: 12px; color: #1f2937; overflow-wrap: anywhere; }
+.feedback-file span { font-size: 11px; color: #64748b; }
+.feedback-file button { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border: 1px solid #dbe3ec; border-radius: 6px; background: #fff; color: #be123c; cursor: pointer; transition: background .15s ease, transform .15s ease; }
+.feedback-file button:hover { background: #fff1f2; }
+.feedback-file button:active { transform: scale(.92); }
+.feedback-spinner { animation: feedback-spin 1s linear infinite; }
+@keyframes feedback-spin { to { transform: rotate(360deg); } }
+.feedback-header > div { min-width: 0; }
+.feedback-header h2 { font-size: 18px; }
+.feedback-dialog button:disabled { cursor: not-allowed; opacity: .6; }
+.feedback-dialog input:focus-visible, .feedback-dialog textarea:focus-visible, .feedback-dialog button:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+.feedback-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.feedback-footer > span { font-size: 11px; color: #64748b; transition: color .15s ease; }
+.feedback-footer > span.is-near-limit { color: #d97706; font-weight: 700; }
+.feedback-submit { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: 0; border-radius: 6px; padding: 11px 18px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px -2px rgba(79,70,229,.45); transition: box-shadow .15s ease, transform .15s ease; }
+.feedback-submit:hover:not(:disabled) { box-shadow: 0 6px 16px -2px rgba(79,70,229,.55); transform: translateY(-1px); }
+.feedback-submit:active:not(:disabled) { transform: translateY(0); }
+.feedback-submit:disabled { opacity: .6; cursor: wait; box-shadow: none; }
+.feedback-error { padding: 10px 12px; background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; border-radius: 6px; font-size: 13px; }
+.feedback-success { text-align: center; padding: 40px 24px; }
+.feedback-success svg { animation: feedback-pop .35s cubic-bezier(.22,1,.36,1) both; }
+@keyframes feedback-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+.feedback-success h3 { font-size: 18px; }
+.feedback-success p { color: #64748b; line-height: 1.6; font-size: 14px; }
+@media (max-width: 480px) {
+  .feedback-header, .feedback-form { padding: 18px; }
+  .feedback-categories { grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
+@keyframes feedback-dialog-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes feedback-dialog-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .feedback-dialog[open], .feedback-dialog.is-closing { animation: none; }
+  .feedback-dialog::backdrop { transition: none; }
+}
