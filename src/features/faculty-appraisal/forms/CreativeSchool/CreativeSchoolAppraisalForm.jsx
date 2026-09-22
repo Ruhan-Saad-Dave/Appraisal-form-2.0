@@ -66,6 +66,10 @@ import {
   SectionSaveFooter,
   RowButtons as RowBtns,
   SectionCard as SC,
+  useFormSchema,
+  SchemaSectionTable,
+  validateSchemaForm,
+  calculateSectionTotal,
 } from "../../index";
 import { canReviewerRejectProfile, departmentHasHod, getDeanTrack, getReviewChain, pendingStatusFor, profileFromsessionStorage, reviewedStatusFor, roleLabel, visiblePreviousReviewRoles, workflowValidationError, isAppraisalFinalisedByVc, isRejectedStatus, isPendingReviewStatusFor, hasActiveRejection, reviewListFrom } from "../../../../utils/hierarchy";
 import { n, pct, RO, TI } from "../../shared";
@@ -342,6 +346,13 @@ export const PART_E_SECTIONS = [
 ];
 
 const SECTION_MAX_BY_KEY = Object.fromEntries([...PART_A_SECTIONS, ...PART_B_SECTIONS, ...PART_C_SECTIONS, ...PART_D_SECTIONS, ...PART_E_SECTIONS, { key: "obeRows", max: 20 }, { key: "mentoringRows", max: 10 }].map((section) => [section.key, section.max]));
+export const CORE_CREATIVE_KEYS = new Set([
+  "lectures", "courseFile", "feedback", "projects", "quals", "innovRows", "obeRows", "mentoringRows",
+  "journals", "books", "popularWritings", "ipr", "externalProjects", "research", "consultancy",
+  "confs", "fdps", "awards", "innovation", "products", "ict", "exhibitions", "training",
+  "uniActs", "deptActs", "events", "society", "industry", "alumni", "placements",
+  "leaveManagement", "acr"
+]);
 const REVIEW_SCORE_FIELDS = ["hod", "director", "dean", "vc"];
 
 export const preserveSavedReviewScores = (form = {}, source = {}) => {
@@ -1725,6 +1736,23 @@ function PartA({ sections, SectionTable, InnovativeSection, ObeSection, Mentorin
       <SectionTable key={sections[3].key} section={sections[3]} {...sectionTableProps} />
       <MentoringSection {...sectionTableProps} />
       <SectionTable key={sections[4].key} section={sections[4]} {...sectionTableProps} />
+      {sectionTableProps?.groupedSections?.partA?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_CREATIVE_KEYS.has(s.section_key)).map((sec) => (
+        <SchemaSectionTable
+          key={sec.code || sec.section_key}
+          section={sec}
+          mode={sectionTableProps.mode}
+          reviewerRole={sectionTableProps.reviewerRole}
+          reviewData={sectionTableProps.reviewData}
+          onReviewDataChange={sectionTableProps.handleCustomReviewChange}
+          previousRoles={sectionTableProps.previousRoles}
+          form={sectionTableProps.form}
+          onSectionDataChange={sectionTableProps.handleCustomSectionChange}
+          docs={sectionTableProps.docs}
+          setDocs={sectionTableProps.setDocs}
+          locked={sectionTableProps.locked}
+          academicYear={sectionTableProps.form?.info?.ay || ""}
+        />
+      ))}
     </PartCardContainer>
   );
 }
@@ -1742,6 +1770,23 @@ function PartB({ sections, SectionTable, sectionTableProps }) {
       {sections.map((section) => (
         <SectionTable key={section.key} section={section} {...sectionTableProps} />
       ))}
+      {sectionTableProps?.groupedSections?.partB?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_CREATIVE_KEYS.has(s.section_key)).map((sec) => (
+        <SchemaSectionTable
+          key={sec.code || sec.section_key}
+          section={sec}
+          mode={sectionTableProps.mode}
+          reviewerRole={sectionTableProps.reviewerRole}
+          reviewData={sectionTableProps.reviewData}
+          onReviewDataChange={sectionTableProps.handleCustomReviewChange}
+          previousRoles={sectionTableProps.previousRoles}
+          form={sectionTableProps.form}
+          onSectionDataChange={sectionTableProps.handleCustomSectionChange}
+          docs={sectionTableProps.docs}
+          setDocs={sectionTableProps.setDocs}
+          locked={sectionTableProps.locked}
+          academicYear={sectionTableProps.form?.info?.ay || ""}
+        />
+      ))}
     </PartCardContainer>
   );
 }
@@ -1758,6 +1803,23 @@ function PartC({ sections, SectionTable, sectionTableProps }) {
     >
       {sections.map((section) => (
         <SectionTable key={section.key} section={section} {...sectionTableProps} />
+      ))}
+      {sectionTableProps?.groupedSections?.partC?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_CREATIVE_KEYS.has(s.section_key)).map((sec) => (
+        <SchemaSectionTable
+          key={sec.code || sec.section_key}
+          section={sec}
+          mode={sectionTableProps.mode}
+          reviewerRole={sectionTableProps.reviewerRole}
+          reviewData={sectionTableProps.reviewData}
+          onReviewDataChange={sectionTableProps.handleCustomReviewChange}
+          previousRoles={sectionTableProps.previousRoles}
+          form={sectionTableProps.form}
+          onSectionDataChange={sectionTableProps.handleCustomSectionChange}
+          docs={sectionTableProps.docs}
+          setDocs={sectionTableProps.setDocs}
+          locked={sectionTableProps.locked}
+          academicYear={sectionTableProps.form?.info?.ay || ""}
+        />
       ))}
     </PartCardContainer>
   );
@@ -1894,6 +1956,23 @@ function PartD({ sectionTableProps }) {
           </div>
         );
       })}
+      {sectionTableProps?.groupedSections?.partD?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_CREATIVE_KEYS.has(s.section_key)).map((sec) => (
+        <SchemaSectionTable
+          key={sec.code || sec.section_key}
+          section={sec}
+          mode={sectionTableProps.mode}
+          reviewerRole={sectionTableProps.reviewerRole}
+          reviewData={sectionTableProps.reviewData}
+          onReviewDataChange={sectionTableProps.handleCustomReviewChange}
+          previousRoles={sectionTableProps.previousRoles}
+          form={sectionTableProps.form}
+          onSectionDataChange={sectionTableProps.handleCustomSectionChange}
+          docs={sectionTableProps.docs}
+          setDocs={sectionTableProps.setDocs}
+          locked={sectionTableProps.locked}
+          academicYear={sectionTableProps.form?.info?.ay || ""}
+        />
+      ))}
     </div>
   );
 }
@@ -2032,6 +2111,24 @@ function PartE({ sectionTableProps }) {
           </tbody>
         </table>
       </div>
+
+      {sectionTableProps?.groupedSections?.partE?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_CREATIVE_KEYS.has(s.section_key)).map((sec) => (
+        <SchemaSectionTable
+          key={sec.code || sec.section_key}
+          section={sec}
+          mode={sectionTableProps.mode}
+          reviewerRole={sectionTableProps.reviewerRole}
+          reviewData={sectionTableProps.reviewData}
+          onReviewDataChange={sectionTableProps.handleCustomReviewChange}
+          previousRoles={sectionTableProps.previousRoles}
+          form={sectionTableProps.form}
+          onSectionDataChange={sectionTableProps.handleCustomSectionChange}
+          docs={sectionTableProps.docs}
+          setDocs={sectionTableProps.setDocs}
+          locked={sectionTableProps.locked}
+          academicYear={sectionTableProps.form?.info?.ay || ""}
+        />
+      ))}
     </div>
   );
 }
@@ -2041,7 +2138,39 @@ export function PartDRubricInfoCard() {
 }
 
 export function CreativeSchoolForm({ form, setForm, docs, setDocs, mode = "self", locked = false, reviewerRole = "", reviewData = {}, setReviewData = () => {}, previousRoles = [], sectionView = "partA" }) {
-  const sectionTableProps = { form, setForm, docs, setDocs, mode, locked, reviewerRole, reviewData, setReviewData, previousRoles };
+  const formFamily = isMediaCommSchool(form?.info?.school || form) ? "media" : "design";
+  const academicYear = form?.info?.ay || form?.academic_year || "";
+  const { sections: schemaSections, groupedSections } = useFormSchema({ formFamily, academicYear });
+
+  const handleCustomSectionChange = (secKey, newRows) => {
+    setForm?.((prev) => ({
+      ...prev,
+      [secKey]: newRows,
+    }));
+  };
+
+  const handleCustomReviewChange = (secKey, newReviewRows) => {
+    setReviewData?.((prev) => ({
+      ...prev,
+      [secKey]: newReviewRows,
+    }));
+  };
+
+  const sectionTableProps = {
+    form,
+    setForm,
+    docs,
+    setDocs,
+    mode,
+    locked,
+    reviewerRole,
+    reviewData,
+    setReviewData,
+    previousRoles,
+    handleCustomSectionChange,
+    handleCustomReviewChange,
+    groupedSections,
+  };
   const partBSections = getPartBSectionsForSchool(form?.info?.school || form);
   return (
     <div className="appraisal-form-shell">
@@ -2642,7 +2771,7 @@ export function CreativeSchoolAuthorityReviewPanel({ person, reviewerRole, onBac
     : [];
   const useAuthorityRecordCard = reviewerRole === "hod" || reviewerRole === "dean" || reviewerRole === "director" || reviewerRole === "vc";
   const authorityRecordSchoolTrack = useAuthorityRecordCard ? getDeanTrack({ school: person?.school || form.info?.school, department: person?.department, designation: person?.designation }) : "";
-  const authorityRecordSchoolGroupLabel = { engineering: "Engineering", non_engineering: "Non-Engineering", direct_vc: "CISR" }[authorityRecordSchoolTrack] || person?.school || form.info?.school || APP_INFO.UNIVERSITY_NAME;
+  const authorityRecordSchoolGroupLabel = { engineering: "Engineering", non_engineering: "Non-Engineering", cisr: "CISR" }[authorityRecordSchoolTrack] || person?.school || form.info?.school || APP_INFO.UNIVERSITY_NAME;
   // The "Faculty appraisal record" summary table (below) mirrors the standard/engineering
   // dashboards (HODDashboard, DirectorDashboard, DeanDashboard, NonEngineeringDeanDashboard):
   // every non-VC reviewer's record shows only Self + their own score - never intermediate

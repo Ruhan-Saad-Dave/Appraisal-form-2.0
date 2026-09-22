@@ -1343,7 +1343,7 @@ function StandardVCReviewPanel({ person, personMode, onBack, onSubmit, readOnly 
  const splitDeanSummaryRows = personMode === "dean";
  const useFacultyRecordCard = ["faculty", "hod", "dean", "director", "center_head"].includes(personMode);
  const recordSchoolTrack = useFacultyRecordCard ? getDeanTrack({ school: person.school || person.info?.school, department: person.department, designation: person.designation }) : "";
- const recordSchoolGroupLabel = { engineering: "Engineering", non_engineering: "Non-Engineering", direct_vc: "CISR" }[recordSchoolTrack] || person.school || person.info?.school || APP_INFO.UNIVERSITY_NAME;
+ const recordSchoolGroupLabel = { engineering: "Engineering", non_engineering: "Non-Engineering", cisr: "CISR" }[recordSchoolTrack] || person.school || person.info?.school || APP_INFO.UNIVERSITY_NAME;
  const recordScoreRows = useFacultyRecordCard ? [
  { key: "self", label: "Self", icon: "user", values: facultyTotals, note: summaryOtherInfoValueFrom(person) },
  ...previousSummaryCards.map((card) => ({ key: card.role, label: card.meta.shortLabel, icon: "briefcase", values: card.totals, note: card.remarks })),
@@ -1972,7 +1972,7 @@ const HIERARCHY_SCHOOLS = {
  .map(toVcSchool)
  .concat(DIVISION_SCHOOLS.non_engineering),
  cisr: UNIVERSITY_SCHOOLS
- .filter((school) =>school.deanTrack === DEAN_TRACKS.DIRECT_VC)
+ .filter((school) =>school.deanTrack === DEAN_TRACKS.CISR)
  .map(toVcSchool),
 };
 
@@ -1981,6 +1981,7 @@ const schoolIdForPerson = (person = {}) =>{
  const normalizedSchool = normalizeHierarchyText(schoolValue);
  if (normalizedSchool === "engineering") return "engineering";
  if (normalizedSchool === "non engineering" || normalizedSchool === "nonengineering") return "non_engineering";
+ if (normalizedSchool === "cisr" || isCisrSchool(schoolValue)) return "cisr";
 
  const schoolKey = getSchoolKey(schoolValue);
  return schoolKey ? schoolKey.toLowerCase() : "";
@@ -2116,6 +2117,7 @@ export default function VCDashboard() {
  "CioD",
  DEAN_TRACKS.ENGINEERING,
  DEAN_TRACKS.NON_ENGINEERING,
+ DEAN_TRACKS.CISR,
  ],
  isStale: () =>!isCurrentRequest(),
  onItemReady: applyEnrichedItem,

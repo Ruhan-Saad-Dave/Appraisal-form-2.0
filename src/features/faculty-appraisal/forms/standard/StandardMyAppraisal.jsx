@@ -22,6 +22,9 @@ import {
   loadSavedAppraisal,
   saveAppraisalDraftSection,
   submitAppraisal,
+  useFormSchema,
+  fetchFormSchema,
+  groupSectionsByPart,
 } from "../../services";
 import {
   SCORE_LIMITS,
@@ -47,6 +50,7 @@ import {
   stripMaxMarksFromTitle,
   sumSectionScore,
   validateCompleteRows,
+  validateSchemaForm,
 } from "../../utils";
 import {
   AppraisalHeaderImage,
@@ -57,6 +61,8 @@ import {
   SectionInfoButton,
   SectionSaveFooter,
   SummaryOtherInfoField,
+  SchemaSectionTable,
+  calculateSectionTotal,
   T,
   TD,
   TDC,
@@ -64,6 +70,15 @@ import {
   TH,
   ViewCell,
 } from "../../components";
+
+const CORE_SECTION_KEYS = new Set([
+  "lectures", "courseFile", "innovRows", "innovDetails", "innovScore", "projects", "quals",
+  "feedback", "obeRows", "mentoringRows", "deptActs", "uniActs", "eventRows", "society",
+  "industry", "alumniRows", "placementRows", "acr", "leaveManagement", "journals", "books",
+  "ict", "research", "projects2", "externalProjects", "patents", "awards", "confs", "proposals",
+  "products", "fdps", "training", "exhibitions"
+]);
+
 import {
   n,
   pct,
@@ -587,6 +602,12 @@ export default function StandardMyAppraisal({
   }, []);
   const inf = (k) => (v) => setInfo((p) => ({ ...p, [k]: v }));
 
+  const { sections: schemaSections, groupedSections } = useFormSchema({ formFamily: "standard", academicYear: info.ay });
+  const [customFormData, setCustomFormData] = useState({});
+  const handleCustomSectionChange = (secKey, newRows) => {
+    setCustomFormData((prev) => ({ ...prev, [secKey]: newRows }));
+  };
+
   const [lectures, setLectures] = useState([
     { sem: "", code: "", planned: "", conducted: "", score: "", hod: "", director: "" },
   ]);
@@ -943,6 +964,19 @@ export default function StandardMyAppraisal({
         const savedReviews = reviewListFrom(savedAppraisal?.reviews || savedAppraisal?.payload?.reviews);
         if (savedReviews.length && !loadedReviews.length) setWorkflowReviews(savedReviews);
 
+        const savedForm = savedAppraisal?.payload?.form || savedAppraisal?.form || {};
+        const loadedCustom = {};
+        Object.keys(savedForm).forEach((key) => {
+          if (!CORE_SECTION_KEYS.has(key) && key !== "info" && key !== "sectionSaveStatus" && key !== "summaryOtherInfo") {
+            loadedCustom[key] = savedForm[key];
+          }
+        });
+        if (Object.keys(loadedCustom).length > 0) {
+          setCustomFormData(loadedCustom);
+        } else {
+          setCustomFormData({});
+        }
+
         await Promise.all([
           loadAppraisalDocuments({
             facultyEmail: userEmail,
@@ -1020,7 +1054,23 @@ export default function StandardMyAppraisal({
   const acrScore = 0;
   const teachingMax = PART_A_MAX;
   const effectivePartAMax = PART_A_MAX;
-  const partATotal = clampScore(teachingRaw + stuFeedbackScore, effectivePartAMax);
+
+  const calcCustomPartScore = (sections = []) => {
+    return (sections || []).reduce((sum, sec) => {
+      const key = sec.section_key || sec.code;
+      if (CORE_SECTION_KEYS.has(key) && sec.storage_table) return sum;
+      const data = customFormData[key] || [];
+      return sum + calculateSectionTotal(sec, data);
+    }, 0);
+  };
+
+  const customPartAScore = calcCustomPartScore(groupedSections?.partA);
+  const customPartBScore = calcCustomPartScore(groupedSections?.partB);
+  const customPartCScore = calcCustomPartScore(groupedSections?.partC);
+  const customPartDScore = calcCustomPartScore(groupedSections?.partD);
+  const customPartEScore = calcCustomPartScore(groupedSections?.partE);
+
+  const partATotal = clampScore(teachingRaw + stuFeedbackScore + customPartAScore, effectivePartAMax);
 
   const journalScore = sumSectionScore(journals, B1_JOURNAL_MAX);
   const bookScore = sumSectionScore(books, B2_BOOK_MAX);
@@ -1042,11 +1092,11 @@ export default function StandardMyAppraisal({
   const b8Score = clampScore(fdpScore, B8_ATTENDED_MAX);
   const researchGuidanceProjectMax = B4_PROJECT_MAX + B5_RESEARCH_GUIDANCE_MAX;
   const effectivePartBMax = PART_B_MAX;
-  const partCTotal = clampScore(uniScore + deptScore + eventScore + societyScore + industryScore + alumniScore + placementScore, PART_C_MAX);
-  const partDTotal = sumSectionScore(leaveManagement, PART_D_MAX, "score", PART_D_MAX);
+  const partCTotal = clampScore(uniScore + deptScore + eventScore + societyScore + industryScore + alumniScore + placementScore + customPartCScore, PART_C_MAX);
+  const partDTotal = clampScore(sumSectionScore(leaveManagement, PART_D_MAX, "score", PART_D_MAX) + customPartDScore, PART_D_MAX);
   const effectiveGrandMax = effectivePartAMax + effectivePartBMax + PART_C_MAX + PART_D_MAX;
-  const partBTotal = clampScore(journalScore + bookScore + ictScore + researchScore + projectBScore + patentScore + awardScore + confScore + proposalScore + productScore + b8Score, effectivePartBMax);
-  const grandTotal = clampScore(partATotal + partBTotal + partCTotal + partDTotal, effectiveGrandMax);
+  const partBTotal = clampScore(journalScore + bookScore + ictScore + researchScore + projectBScore + patentScore + awardScore + confScore + proposalScore + productScore + b8Score + customPartBScore, effectivePartBMax);
+  const grandTotal = clampScore(partATotal + partBTotal + partCTotal + partDTotal + customPartEScore, effectiveGrandMax);
 
   const partAMarksPercentage = effectivePartAMax > 0 ? ((partATotal / effectivePartAMax) * 100).toFixed(2) : "0.00";
   const partBMarksPercentage = effectivePartBMax > 0 ? ((partBTotal / effectivePartBMax) * 100).toFixed(2) : "0.00";
@@ -1106,6 +1156,8 @@ export default function StandardMyAppraisal({
       { label: "B11. ICT Content, MOOCs & E-Learning", rows: ict, fields: ["title", "type", "quad", "score"], rowMax: B3_ICT_MAX, maxScore: B3_ICT_MAX },
     ];
     const errors = validateCompleteRows(withRelaxedSectionCap(sections), docs);
+    const schemaErrors = validateSchemaForm(schemaSections, { ...buildSelfDraftForm(), ...customFormData }, docs);
+    errors.push(...schemaErrors);
     [...projects2, ...externalProjects].forEach((row, index) => {
       if (row.date && !isValidDDMMYYYY(row.date)) errors.push(`B4 project row ${index + 1}: date must be DD/MM/YYYY.`);
     });
@@ -1157,6 +1209,9 @@ export default function StandardMyAppraisal({
     ];
     const sectionMap = { partA: partASections, partB: partBSections, partC: partCSections, partD: [], partE: [] };
     const errors = validateCompleteRows(withRelaxedSectionCap(sectionMap[section] || partASections), docs);
+    const secSchema = (groupedSections?.[section] || []).filter((s) => s.isCustom || s.is_custom || !CORE_SECTION_KEYS.has(s.section_key));
+    const schemaErrors = validateSchemaForm(secSchema, { ...buildSelfDraftForm(), ...customFormData }, docs);
+    errors.push(...schemaErrors);
     if (section === "partB") {
       [...projects2, ...externalProjects].forEach((row, index) => {
         if (row.date && !isValidDDMMYYYY(row.date)) errors.push(`B4 project row ${index + 1}: date must be DD/MM/YYYY.`);
@@ -1204,6 +1259,7 @@ export default function StandardMyAppraisal({
 
     return normalizeAutoScores({
       info: profileSafeInfoForYear(info, info.ay, defaultDesignation),
+      ...customFormData,
       lectures: getValue(lectures, "setLectures", "partA"),
       courseFile: getValue(courseFile, "setCourseFile", "partA"),
       innovDetails: resolvedInnovDetails,
@@ -1312,7 +1368,7 @@ export default function StandardMyAppraisal({
     }, 1800);
 
     return () => window.clearTimeout(timer);
-  }, [info, lectures, courseFile, innovRows, projects, obeRows, mentoringRows, quals, feedback, deptActs, uniActs, eventRows, society, industry, alumniRows, placementRows, acr, leaveManagement, journals, books, ict, research, projects2, externalProjects, patents, awards, confs, proposals, products, fdps, training, exhibitions, summaryOtherInfo, docs, sectionSaveStatus, formLocked, submitting, showClosedReportOnly, isLegacyTwoPartYear, isSelectedCycleOpen, appraisalWindowStatus, partATotal, partBTotal, partCTotal, partDTotal, grandTotal, effectivePartAMax, effectivePartBMax, effectiveGrandMax]);
+  }, [info, customFormData, lectures, courseFile, innovRows, projects, obeRows, mentoringRows, quals, feedback, deptActs, uniActs, eventRows, society, industry, alumniRows, placementRows, acr, leaveManagement, journals, books, ict, research, projects2, externalProjects, patents, awards, confs, proposals, products, fdps, training, exhibitions, summaryOtherInfo, docs, sectionSaveStatus, formLocked, submitting, showClosedReportOnly, isLegacyTwoPartYear, isSelectedCycleOpen, appraisalWindowStatus, partATotal, partBTotal, partCTotal, partDTotal, grandTotal, effectivePartAMax, effectivePartBMax, effectiveGrandMax]);
 
   const handleSaveCurrentSection = async (section, navigateNext = true) => {
     if (formLocked) return;
@@ -2479,6 +2535,20 @@ export default function StandardMyAppraisal({
                       </table>
                       <RowBtns onAdd={() => setQuals((p) => [...p, { label: "", awardingBody: "", date: "", score: "" }])} onDel={() => setQuals((p) => p.length > 1 ? p.slice(0, -1) : p)} canDel={quals.length > 1} />
                     </div>
+
+                    {groupedSections?.partA?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_SECTION_KEYS.has(s.section_key)).map((sec) => (
+                      <SchemaSectionTable
+                        key={sec.code || sec.section_key}
+                        section={sec}
+                        mode="self"
+                        form={customFormData}
+                        onSectionDataChange={handleCustomSectionChange}
+                        docs={docs}
+                        setDocs={setDocs}
+                        locked={formLocked}
+                        academicYear={info.ay}
+                      />
+                    ))}
                   </SC>
                 )}
 
@@ -2739,6 +2809,20 @@ export default function StandardMyAppraisal({
                       </table>
                       <RowBtns onAdd={() => setPlacementRows((p) => [...p, { activityType: "", name: "", date: "", score: "" }])} onDel={() => setPlacementRows((p) => p.length > 1 ? p.slice(0, -1) : p)} canDel={placementRows.length > 1} />
                     </div>
+
+                    {groupedSections?.partC?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_SECTION_KEYS.has(s.section_key)).map((sec) => (
+                      <SchemaSectionTable
+                        key={sec.code || sec.section_key}
+                        section={sec}
+                        mode="self"
+                        form={customFormData}
+                        onSectionDataChange={handleCustomSectionChange}
+                        docs={docs}
+                        setDocs={setDocs}
+                        locked={formLocked}
+                        academicYear={info.ay}
+                      />
+                    ))}
                   </SC>
                 )}
 
@@ -2827,6 +2911,20 @@ export default function StandardMyAppraisal({
                         </div>
                       );
                     })}
+
+                    {groupedSections?.partD?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_SECTION_KEYS.has(s.section_key)).map((sec) => (
+                      <SchemaSectionTable
+                        key={sec.code || sec.section_key}
+                        section={sec}
+                        mode="self"
+                        form={customFormData}
+                        onSectionDataChange={handleCustomSectionChange}
+                        docs={docs}
+                        setDocs={setDocs}
+                        locked={formLocked}
+                        academicYear={info.ay}
+                      />
+                    ))}
                   </SC>
                 )}
 
@@ -2858,6 +2956,20 @@ export default function StandardMyAppraisal({
                         </tr>
                       </tbody>
                     </table>
+
+                    {groupedSections?.partE?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_SECTION_KEYS.has(s.section_key)).map((sec) => (
+                      <SchemaSectionTable
+                        key={sec.code || sec.section_key}
+                        section={sec}
+                        mode="self"
+                        form={customFormData}
+                        onSectionDataChange={handleCustomSectionChange}
+                        docs={docs}
+                        setDocs={setDocs}
+                        locked={formLocked}
+                        academicYear={info.ay}
+                      />
+                    ))}
                   </SC>
                 )}
 
@@ -3453,6 +3565,20 @@ export default function StandardMyAppraisal({
                       </table>
                       <RowBtns onAdd={() => setTraining((p) => [...p, { company: "", duration: "", nature: "", score: "" }])} onDel={() => setTraining((p) => p.length > 1 ? p.slice(0, -1) : p)} canDel={training.length > 1} />
                     </div>
+
+                    {groupedSections?.partB?.filter((s) => s.storage_table == null || s.isCustom || s.is_custom || !CORE_SECTION_KEYS.has(s.section_key)).map((sec) => (
+                      <SchemaSectionTable
+                        key={sec.code || sec.section_key}
+                        section={sec}
+                        mode="self"
+                        form={customFormData}
+                        onSectionDataChange={handleCustomSectionChange}
+                        docs={docs}
+                        setDocs={setDocs}
+                        locked={formLocked}
+                        academicYear={info.ay}
+                      />
+                    ))}
                   </SC>
                 )}
 

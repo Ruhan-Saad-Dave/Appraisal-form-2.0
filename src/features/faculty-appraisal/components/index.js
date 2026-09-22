@@ -3,6 +3,7 @@ export { default as RejectionNotice } from "../../../components/RejectionNotice"
 export * from "./formPrimitives";
 export { SectionCard as SC } from "./formPrimitives";
 export * from "./formPrimitiveStyles";
+export { default as SchemaSectionTable, calculateRowScore, calculateSectionTotal } from "./SchemaSectionTable";
 export {
   default as SummaryOtherInfoField,
 } from "../../../components/SummaryOtherInfoField";

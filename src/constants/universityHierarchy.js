@@ -1,7 +1,7 @@
 export const DEAN_TRACKS = {
   ENGINEERING: "engineering",
   NON_ENGINEERING: "non_engineering",
-  DIRECT_VC: "direct_vc",
+  CISR: "cisr",
 };
 
 export const SOEMR_DEPARTMENTS = [
@@ -142,7 +142,7 @@ export const UNIVERSITY_SCHOOLS = [
     code: "CISR",
     name: "Center for Interdisciplinary Studies and Research",
     label: "CISR - Center for Interdisciplinary Studies and Research",
-    deanTrack: DEAN_TRACKS.DIRECT_VC,
+    deanTrack: DEAN_TRACKS.CISR,
     hodDepartments: [],
     aliases: [
       "cisr",

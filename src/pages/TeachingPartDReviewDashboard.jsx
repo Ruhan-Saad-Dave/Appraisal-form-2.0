@@ -31,7 +31,7 @@ const PART_D_SCHOOL_META = {
 const PART_D_DIVISION_META = {
   engineering: { label: "Engineering Schools", color: "#1e40af", bg: "linear-gradient(135deg,#dbeafe,#bfdbfe)" },
   non_engineering: { label: "Non-Engineering Schools", color: "#6b21a8", bg: "linear-gradient(135deg,#f3e8ff,#e9d5ff)" },
-  direct_vc: { label: "CISR", color: "#0f766e", bg: "linear-gradient(135deg,#ccfbf1,#99f6e4)" },
+  cisr: { label: "CISR", color: "#0f766e", bg: "linear-gradient(135deg,#ccfbf1,#99f6e4)" },
 };
 
 const PART_D_DIVISION_SCHOOLS = {
@@ -74,8 +74,8 @@ const PART_D_SCHOOLS_BY_DIVISION = {
     .filter((school) => school.deanTrack === DEAN_TRACKS.NON_ENGINEERING)
     .map(toPartDSchool)
     .concat(PART_D_DIVISION_SCHOOLS.non_engineering),
-  direct_vc: UNIVERSITY_SCHOOLS
-    .filter((school) => school.deanTrack === DEAN_TRACKS.DIRECT_VC)
+  cisr: UNIVERSITY_SCHOOLS
+    .filter((school) => school.deanTrack === DEAN_TRACKS.CISR)
     .map(toPartDSchool),
 };
 
@@ -84,6 +84,7 @@ const schoolIdForPartDItem = (item = {}) => {
   const normalizedSchool = normalizeHierarchyText(schoolValue);
   if (normalizedSchool === "engineering") return "engineering";
   if (normalizedSchool === "non engineering" || normalizedSchool === "nonengineering" || normalizedSchool === "non_engineering") return "non_engineering";
+  if (normalizedSchool === "cisr" || isCisrSchool(schoolValue)) return "cisr";
 
   const school = getSchoolByValue(schoolValue);
   return school?.code ? school.code.toLowerCase() : "";

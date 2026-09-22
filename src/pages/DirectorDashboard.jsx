@@ -696,7 +696,7 @@ function StandardReviewPanel({ faculty, onBack, onSubmit, readOnly = false }) {
  const directorSubjectRole = (faculty.appraisalRole || faculty.appraisal_role || faculty.role || "faculty").toLowerCase();
  const showHodSummaryCard = directorSubjectRole === "faculty" && departmentHasHod(faculty.school || faculty.schoolName || faculty.info?.school || "", faculty.department || faculty.info?.department || "");
  const directorRecordSchoolTrack = getDeanTrack({ school: faculty.school || faculty.info?.school, department: faculty.department, designation: faculty.designation });
- const directorRecordSchoolGroupLabel = { engineering: "Engineering", non_engineering: "Non-Engineering", direct_vc: "CISR" }[directorRecordSchoolTrack] || faculty.school || faculty.info?.school || APP_INFO.UNIVERSITY_NAME;
+ const directorRecordSchoolGroupLabel = { engineering: "Engineering", non_engineering: "Non-Engineering", cisr: "CISR" }[directorRecordSchoolTrack] || faculty.school || faculty.info?.school || APP_INFO.UNIVERSITY_NAME;
  const directorRecordScoreRows = [
  { key: "self", label: "Self", icon: "user", values: { partA: facultySummary.partA, partB: facultySummary.partB, partC: facultySummary.partC, partD: facultySummary.partD, partE: 0, total: facultySummary.total }, note: summaryOtherInfoValueFrom(faculty) },
  { key: "director", label: "Director", icon: "briefcase", values: { partA: dirPartA, partB: dirPartB, partC: dirPartC, partD: facultySummary.partD, partE: dirPartD, total: dirTotal }, accent: true },

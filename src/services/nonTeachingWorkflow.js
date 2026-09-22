@@ -1,7 +1,6 @@
 import { APP_INFO } from "../constants/formConfig";
 import {
   NON_TEACHING_ROLE_LABELS,
-  isNonTeachingRole,
   normalizeNonTeachingRole,
   readReportsToRegistrarFlag,
   roReportsToRegistrar,

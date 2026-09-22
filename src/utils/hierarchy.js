@@ -10,7 +10,7 @@ import { isNonTeachingRole, normalizeNonTeachingRole, readReportsToRegistrarFlag
 
 const ENGINEERING = DEAN_TRACKS.ENGINEERING;
 const NON_ENGINEERING = DEAN_TRACKS.NON_ENGINEERING;
-const DIRECT_VC = DEAN_TRACKS.DIRECT_VC;
+const CISR = DEAN_TRACKS.CISR;
 
 export const SCHOOL_HIERARCHY = Object.fromEntries(
   UNIVERSITY_SCHOOLS.map((school) => [
@@ -53,18 +53,21 @@ export const getDeanTrack = (profile = {}) => {
   if (rawSchool === "engineering") {
     return ENGINEERING;
   }
-
-  const combined = normalizeText(`${profile.school || ""} ${profile.department || ""} ${profile.designation || ""} ${profile.email || ""}`);
-
-  if (combined.includes("non engineering") || combined.includes("nonengineering") || combined.includes("commerce") || combined.includes("media") || combined.includes("humanities") || combined.includes("social sciences") || combined.includes("design") || combined.includes("applied arts") || combined.includes("socm") || combined.includes("somcs") || combined.includes("sohss") || combined.includes("sod") || combined.includes("soaa") || combined.includes("soa")) {
-    return NON_ENGINEERING;
+  if (rawSchool === "cisr" || isCisrSchool(profile.school)) {
+    return CISR;
   }
 
   const schoolConfig = getSchoolHierarchy(profile.school);
   if (schoolConfig?.deanTrack) return schoolConfig.deanTrack;
 
+  const combined = normalizeText(`${profile.school || ""} ${profile.department || ""} ${profile.designation || ""} ${profile.email || ""}`);
+
   if (combined.includes("cisr") || combined.includes("interdisciplinary studies and research") || combined.includes("center head") || combined.includes("centre head")) {
-    return DIRECT_VC;
+    return CISR;
+  }
+
+  if (combined.includes("non engineering") || combined.includes("nonengineering") || combined.includes("commerce") || combined.includes("media") || combined.includes("humanities") || combined.includes("social sciences") || combined.includes("design") || combined.includes("applied arts") || combined.includes("socm") || combined.includes("somcs") || combined.includes("sohss") || combined.includes("sod") || combined.includes("soaa") || combined.includes("soa")) {
+    return NON_ENGINEERING;
   }
 
   return ENGINEERING;
@@ -98,7 +101,9 @@ export const getReviewChain = (profile = {}) => {
   if (role === "director") return ["dean", "vc"];
   if (role === "hod") return ["director", "dean", "vc"];
 
-  if (getSchoolKey(profile.school) === "CISR") {
+  const schoolKey = getSchoolKey(profile.school);
+  const deanTrack = getDeanTrack(profile);
+  if (schoolKey === "CISR" || isCisrSchool(profile.school) || deanTrack === CISR || deanTrack === "cisr") {
     return ["center_head", "vc"];
   }
 
@@ -273,12 +278,13 @@ export const canAuthorityReviewProfile = (reviewerProfile = {}, subjectProfile =
   if (reviewerRole === "dean") {
     const track = getDeanTrack(subjectProfile);
     return subjectRole !== "dean" &&
-      track !== DIRECT_VC &&
+      track !== CISR &&
       getDeanTrack(reviewerProfile) === track;
   }
 
   if (reviewerRole === "director") {
-    return getSchoolKey(reviewerProfile.school) === getSchoolKey(subjectProfile.school) &&
+    return getSchoolKey(reviewerProfile.school) !== "CISR" &&
+      getSchoolKey(reviewerProfile.school) === getSchoolKey(subjectProfile.school) &&
       (subjectRole === "faculty" || subjectRole === "hod");
   }
 

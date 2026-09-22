@@ -325,7 +325,7 @@ function StandardReviewPanel({ faculty, onBack, onSubmit, readOnly = false, revi
  partB: faculty.journals?.reduce((a, r) =>a + n(r.score), 0) || 0,
  });
  const hodRecordSchoolTrack = getDeanTrack({ school: faculty.school || faculty.info?.school, department: faculty.department, designation: faculty.designation });
- const hodRecordSchoolGroupLabel = { engineering: "Engineering", non_engineering: "Non-Engineering", direct_vc: "CISR" }[hodRecordSchoolTrack] || faculty.school || faculty.info?.school || APP_INFO.UNIVERSITY_NAME;
+ const hodRecordSchoolGroupLabel = { engineering: "Engineering", non_engineering: "Non-Engineering", cisr: "CISR" }[hodRecordSchoolTrack] || faculty.school || faculty.info?.school || APP_INFO.UNIVERSITY_NAME;
  const hodRecordScoreRows = [
  { key: "self", label: "Self", icon: "user", values: { partA: facultySummary.partA, partB: facultySummary.partB, partC: facultySummary.partC, partD: facultySummary.partD, partE: 0, total: facultySummary.total }, note: summaryOtherInfoValueFrom(faculty) },
  { key: reviewerRole, label: reviewerLabel, icon: "briefcase", values: { partA, partB, partC, partD: facultySummary.partD, partE: partD, total }, accent: true },

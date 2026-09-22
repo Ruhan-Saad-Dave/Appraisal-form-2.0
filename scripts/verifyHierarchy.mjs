@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import {
+  DEAN_TRACKS,
   SCHOOL_OPTIONS,
   SOEMR_DEPARTMENTS,
   SOEMR_SCHOOL,
   UNIVERSITY_SCHOOLS,
+  getSchoolsByDeanTrack,
+  getSchoolCodesByDeanTrack,
 } from "../src/constants/universityHierarchy.js";
 import {
   canAuthorityReviewProfile,
+  getDeanTrack,
   getReviewChain,
   visiblePreviousReviewRoles,
   workflowValidationError,
@@ -21,6 +25,34 @@ const roles = {
   registrar: { appraisal_role: "registrar" },
   reportingOfficer: { appraisal_role: "reporting_officer" },
 };
+
+assert.equal(DEAN_TRACKS.CISR, "cisr", "DEAN_TRACKS.CISR must be 'cisr'");
+assert.equal(DEAN_TRACKS.ENGINEERING, "engineering", "DEAN_TRACKS.ENGINEERING must be 'engineering'");
+assert.equal(DEAN_TRACKS.NON_ENGINEERING, "non_engineering", "DEAN_TRACKS.NON_ENGINEERING must be 'non_engineering'");
+
+const cisrSchoolObj = UNIVERSITY_SCHOOLS.find((s) => s.code === "CISR");
+assert.ok(cisrSchoolObj, "CISR school must exist in UNIVERSITY_SCHOOLS");
+assert.equal(cisrSchoolObj.deanTrack, DEAN_TRACKS.CISR, "CISR must have deanTrack === DEAN_TRACKS.CISR ('cisr')");
+
+assert.deepEqual(
+  getSchoolCodesByDeanTrack(DEAN_TRACKS.CISR),
+  ["CISR"],
+  "CISR track must contain only CISR"
+);
+assert.equal(
+  getSchoolsByDeanTrack(DEAN_TRACKS.ENGINEERING).some((s) => s.code === "CISR"),
+  false,
+  "CISR must not appear in Engineering track"
+);
+assert.equal(
+  getSchoolsByDeanTrack(DEAN_TRACKS.NON_ENGINEERING).some((s) => s.code === "CISR"),
+  false,
+  "CISR must not appear in Non-Engineering track"
+);
+
+assert.equal(getDeanTrack({ school: "CISR" }), "cisr", "getDeanTrack(CISR) must return 'cisr'");
+assert.equal(getDeanTrack({ school: "Center for Interdisciplinary Studies & Research" }), "cisr", "getDeanTrack for CISR full name must return 'cisr'");
+assert.equal(getDeanTrack({ school: "cisr" }), "cisr", "getDeanTrack('cisr') must return 'cisr'");
 
 assert.equal(SCHOOL_OPTIONS.length, 10, "Signup must expose exactly 9 schools plus CISR");
 assert.deepEqual(
@@ -178,16 +210,16 @@ assert.deepEqual(visiblePreviousReviewRoles("vc", engineeringDeanSelf), [], "Dea
 
 for (const school of UNIVERSITY_SCHOOLS) {
   const faculty = { appraisal_role: "faculty", school: school.label, department: school.code === "SoEMR" ? SOEMR_DEPARTMENTS[0] : "" };
-  const engineering = school.deanTrack === "engineering";
-  const directVc = school.deanTrack === "direct_vc";
+  const engineering = school.deanTrack === DEAN_TRACKS.ENGINEERING;
+  const isCisr = school.deanTrack === DEAN_TRACKS.CISR;
   assert.equal(
     canAuthorityReviewProfile(roles.engineeringDean, faculty),
-    engineering && !directVc,
+    engineering && !isCisr,
     `Engineering dean visibility mismatch for ${school.code}`
   );
   assert.equal(
     canAuthorityReviewProfile(roles.nonEngineeringDean, faculty),
-    !engineering && !directVc,
+    !engineering && !isCisr,
     `Non-engineering dean visibility mismatch for ${school.code}`
   );
   assert.equal(canAuthorityReviewProfile(roles.vc, faculty), true, `VC must review ${school.code}`);
